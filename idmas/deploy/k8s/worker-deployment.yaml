@@ -1,0 +1,12 @@
+# =============================================================================
+# Kubernetes LangGraph Worker Deployment
+#
+# 配置:
+#   - namespace: idmas
+#   - replicas: 2
+#   - 扩展触发条件: 队列积压 > 20
+#   - resources:
+#       requests: cpu=1000m, memory=4Gi
+#       limits: cpu=4000m, memory=8Gi
+#   - env: 从Secret idmas-secrets注入
+# =============================================================================

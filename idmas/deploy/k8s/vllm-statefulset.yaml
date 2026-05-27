@@ -1,0 +1,14 @@
+# =============================================================================
+# Kubernetes vLLM StatefulSet (参见技术设计7.3节)
+#
+# 配置:
+#   - namespace: idmas
+#   - replicas: 1
+#   - nodeSelector: nvidia.com/gpu.present=true
+#   - resources:
+#       limits: nvidia.com/gpu=1, memory=32Gi
+#   - args: --model /models/qwen2.5-vl-7b-ft
+#           --max-model-len 4096
+#           --gpu-memory-utilization 0.92
+#   - volumeMounts: model-weights → /models
+# =============================================================================

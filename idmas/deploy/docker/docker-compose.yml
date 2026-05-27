@@ -1,0 +1,28 @@
+# =============================================================================
+# IDMAS Docker Compose 部署配置 (MVP)
+#
+# 服务 (参见技术设计7.4节):
+#   - api:        FastAPI应用 (×2副本, 端口8080)
+#   - worker:     LangGraph Worker (×2副本)
+#   - vllm:       vLLM推理服务 (GPU, 端口8000)
+#   - postgres:   PostgreSQL 16 (端口5432)
+#   - redis:      Redis 7 + AOF持久化 (端口6379)
+#   - rabbitmq:   RabbitMQ 3 + 管理面板 (端口5672/15672)
+#   - milvus:     Milvus 2.4 向量库 (端口19530)
+#   - minio:      MinIO 对象存储 (端口9000/9001)
+#   - prometheus: Prometheus 监控 (端口9090)
+#   - grafana:    Grafana 面板 (端口3000)
+#
+# 卷:
+#   - pg-data: PostgreSQL数据
+#   - redis-data: Redis持久化
+#   - milvus-data: Milvus数据
+#   - minio-data: MinIO对象
+#   - model-weights: 模型权重
+#
+# 网络:
+#   - idmas-net: 内部网络 (bridge)
+#
+# GPU:
+#   - vllm服务使用NVIDIA GPU (deploy.resources.reservations.devices)
+# =============================================================================

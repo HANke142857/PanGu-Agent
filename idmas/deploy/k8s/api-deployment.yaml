@@ -1,0 +1,14 @@
+# =============================================================================
+# Kubernetes API Deployment (参见技术设计7.3节)
+#
+# 配置:
+#   - namespace: idmas
+#   - replicas: 2
+#   - strategy: RollingUpdate (maxUnavailable=0, maxSurge=1)
+#   - resources:
+#       requests: cpu=500m, memory=1Gi
+#       limits: cpu=2000m, memory=4Gi
+#   - livenessProbe: /api/v1/health (30s间隔)
+#   - readinessProbe: /api/v1/health/ready (10s间隔)
+#   - env: 从Secret idmas-secrets注入
+# =============================================================================

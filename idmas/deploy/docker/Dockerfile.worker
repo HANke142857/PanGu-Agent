@@ -1,0 +1,18 @@
+# =============================================================================
+# LangGraph Worker Dockerfile
+#
+# 构建阶段:
+#   - 基础镜像: python:3.11-slim
+#   - 安装依赖: poetry export → pip install
+#   - 复制源码
+#
+# 运行阶段:
+#   - 非root用户运行
+#   - 启动命令: python -m idmas.worker (消费RabbitMQ消息，启动LangGraph执行)
+#   - 无HTTP端口暴露
+#
+# 与API Dockerfile区别:
+#   - Worker不需要FastAPI/Uvicorn
+#   - Worker需要消费RabbitMQ消息
+#   - Worker直连vLLM/OCR/Redis等服务
+# =============================================================================
