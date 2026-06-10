@@ -153,6 +153,9 @@ class Settings(BaseSettings):
     # Prometheus 指标：关闭则全 No-op（测试/开发零开销）
     METRICS_ENABLED:             bool = False
     METRICS_PORT:                int  = Field(default=9100, ge=1, le=65535)  # worker 指标端口
+    # LangFuse（LLM/Agent 追踪）/ OTel（分布式追踪）：默认关闭，按需开启
+    LANGFUSE_ENABLED:            bool = False
+    TRACING_ENABLED:             bool = False
     LANGFUSE_HOST:               str = "http://localhost:3000"
     LANGFUSE_PUBLIC_KEY:         str = "pk-placeholder"
     LANGFUSE_SECRET_KEY:         str = "sk-placeholder"

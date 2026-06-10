@@ -37,3 +37,9 @@ langchain-openai>=0.3
 
 # 可观测性
 prometheus-client>=0.20
+# LangFuse / OTel 默认关闭，按需启用（LANGFUSE_ENABLED / TRACING_ENABLED）
+langfuse>=2.0
+opentelemetry-sdk>=1.27
+opentelemetry-exporter-otlp-proto-grpc>=1.27
+opentelemetry-instrumentation-fastapi>=0.48b0
+opentelemetry-instrumentation-httpx>=0.48b0

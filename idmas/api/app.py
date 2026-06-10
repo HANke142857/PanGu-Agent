@@ -186,6 +186,11 @@ def create_app(
         from idmas.api.middleware.rate_limit import RateLimitMiddleware
         app.add_middleware(RateLimitMiddleware, per_minute=settings.RATE_LIMIT_PER_MINUTE)
 
+    # ── 分布式追踪（OTel，默认关闭）──────────────────────────────────────
+    from idmas.infrastructure.observability.tracing import init_tracing, instrument_fastapi
+    init_tracing(settings, "idmas-api")
+    instrument_fastapi(app, settings)
+
     # ── 指标中间件 + /metrics 端点 ──────────────────────────────────────
     from idmas.api.middleware.metrics import MetricsMiddleware
     app.add_middleware(MetricsMiddleware)

@@ -16,6 +16,18 @@ docker compose up -d --build
 | MinIO 控制台 | http://localhost:9001 | minioadmin / minioadmin |
 | Neo4j 浏览器 | http://localhost:7474 | neo4j / idmas_neo4j |
 | Elasticsearch | http://localhost:9200 | — |
+| Prometheus | http://localhost:9090 | — |
+| Grafana | http://localhost:3001 | admin / idmas_grafana（已开匿名）|
+
+## 可观测性
+
+- **Metrics**（默认开）：API `/metrics`、worker `:9100/metrics`，Prometheus 抓取，Grafana 看板。
+- **LangFuse**（LLM/Agent 追踪，默认关）：设 `LANGFUSE_ENABLED=true` + 自建 LangFuse 的
+  `LANGFUSE_HOST/PUBLIC_KEY/SECRET_KEY`。回调自动注入 LangGraph，记录每个 Agent 的
+  prompt/输出/token/延迟。
+- **OTel 分布式追踪**（默认关）：设 `TRACING_ENABLED=true` + `OTEL_EXPORTER_OTLP_ENDPOINT`
+  指向 OTLP collector（如 Jaeger）。FastAPI/httpx 自动埋点。
+  三者均优雅降级：依赖缺失或服务不可用时静默跳过，不影响主流程。
 
 ## 向量库（Milvus）
 

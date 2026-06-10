@@ -26,6 +26,9 @@ async def run_worker() -> None:
     settings = get_settings()
 
     from idmas.infrastructure.observability.metrics import build_metrics, start_metrics_server
+    from idmas.infrastructure.observability.tracing import init_tracing
+
+    init_tracing(settings, "idmas-worker")
     metrics = build_metrics(settings)
     start_metrics_server(metrics, settings.METRICS_PORT)
 

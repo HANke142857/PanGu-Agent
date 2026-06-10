@@ -80,6 +80,18 @@ class TaskProcessor:
                 llm_client=self._llm,
                 enable_human_review=self._enable_human_review,
             )
+            # LangFuse 追踪回调（未启用时为空，零开销）
+            from idmas.config.settings import get_settings
+            from idmas.infrastructure.observability.langfuse_handler import (
+                build_langfuse_callbacks,
+            )
+            config: dict = {"configurable": {"thread_id": thread_id}}
+            callbacks = build_langfuse_callbacks(
+                get_settings(), trace_name="idmas-task", session_id=str(task_id)
+            )
+            if callbacks:
+                config["callbacks"] = callbacks
+
             result = await graph.ainvoke(
                 {
                     "image_url":   drawing.file_url,
@@ -89,7 +101,7 @@ class TaskProcessor:
                     "request_id":  str(task_id),
                     "messages":    [],
                 },
-                config={"configurable": {"thread_id": thread_id}},
+                config=config,
             )
 
             elapsed_ms = int((time.monotonic() - t0) * 1000)
