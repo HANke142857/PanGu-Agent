@@ -70,6 +70,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # OCR (PaddleOCR)
     # ------------------------------------------------------------------
+    # OCR 后端：fake（确定性假结果，开发/测试）| paddle（生产）
+    OCR_BACKEND: str = "fake"
     OCR_URL:     str = "http://localhost:8100"
     OCR_TIMEOUT: int = Field(default=30, ge=5, le=120)
 

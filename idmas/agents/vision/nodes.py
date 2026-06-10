@@ -232,25 +232,21 @@ def confidence_check_node(state: VisionState) -> dict[str, Any]:
 async def make_ocr_retry_node(ocr_client: Any | None = None):
     """
     工厂函数：返回绑定了 ocr_client 的 OCR 重试节点。
-    ocr_client=None 时使用 FakeOCR（返回空结果，不影响主流程测试）。
+    ocr_client=None 时回落到 FakeOCRClient（确定性假结果，不依赖 OCR 服务）。
     """
+    if ocr_client is None:
+        from idmas.infrastructure.ocr.base import FakeOCRClient
+        ocr_client = FakeOCRClient()
+
     async def ocr_retry_node(state: VisionState) -> dict[str, Any]:
         image_url = state.get("image_url", "")
         logger.info("[vision] ocr_retry: running OCR on %s", image_url[:60])
 
-        if ocr_client is not None:
-            try:
-                ocr_results = await ocr_client.extract(image_url)
-            except Exception as exc:
-                logger.warning("[vision] ocr_retry: OCR failed: %s, proceeding without OCR", exc)
-                ocr_results = []
-        else:
-            # Fake OCR：返回与图片 URL 匹配的假文字
-            ocr_results = [
-                {"text": "3",  "score": 0.95, "box": [0.75, 0.40, 0.93, 0.50]},
-                {"text": "输出轴", "score": 0.88, "box": [0.75, 0.50, 0.93, 0.60]},
-            ]
-            logger.info("[vision] ocr_retry: using fake OCR results")
+        try:
+            ocr_results = await ocr_client.extract(image_url)
+        except Exception as exc:  # noqa: BLE001 — OCR 失败不阻断主流程
+            logger.warning("[vision] ocr_retry: OCR failed: %s, proceeding without OCR", exc)
+            ocr_results = []
 
         return {
             "ocr_results": ocr_results,

@@ -52,6 +52,19 @@ from idmas.infrastructure.llm.vllm_client import BaseLLMClient
 # 条件路由
 # ---------------------------------------------------------------------------
 
+def _default_ocr_client():
+    """按 settings.OCR_BACKEND 选择 OCR 客户端（paddle 真实 / fake 默认）。"""
+    from idmas.config.settings import get_settings
+
+    settings = get_settings()
+    if settings.OCR_BACKEND == "paddle":
+        from idmas.infrastructure.ocr.paddle_client import PaddleOCRClient
+        return PaddleOCRClient(settings.OCR_URL, settings.OCR_TIMEOUT)
+
+    from idmas.infrastructure.ocr.base import FakeOCRClient
+    return FakeOCRClient()
+
+
 def route_after_confidence(state: VisionState) -> str:
     """
     置信度检查后路由：
@@ -82,8 +95,8 @@ async def build_vision_graph(
         编译后的 CompiledStateGraph，可直接 `.ainvoke()` / `.astream()`
     """
     # 1. 生成需要依赖注入的异步节点
-    vllm_node     = await make_vllm_inference_node(llm_client)
-    ocr_retry_node = await make_ocr_retry_node(ocr_client)
+    vllm_node      = await make_vllm_inference_node(llm_client)
+    ocr_retry_node = await make_ocr_retry_node(ocr_client or _default_ocr_client())
 
     # 2. 构建 StateGraph
     builder = StateGraph(VisionState)
