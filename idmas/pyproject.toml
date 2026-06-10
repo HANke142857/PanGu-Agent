@@ -39,6 +39,10 @@ pymilvus = { version = "~2.4", optional = true }
 # 对象存储 (第6步激活)
 minio = { version = "~7.2", optional = true }
 
+# 知识图谱 / 全文检索 (第7步激活)
+neo4j         = { version = "~5.24", optional = true }
+elasticsearch = { version = "~8.15", optional = true }
+
 [tool.poetry.extras]
 web     = ["fastapi", "uvicorn"]
 db      = ["sqlalchemy", "asyncpg", "redis"]
@@ -47,9 +51,11 @@ llm     = ["langchain-core", "langgraph", "langchain-openai"]
 mq      = ["aio-pika"]
 vector  = ["pymilvus"]
 storage = ["minio"]
+graph   = ["neo4j"]
+search  = ["elasticsearch"]
 all     = ["fastapi", "uvicorn", "sqlalchemy", "asyncpg", "redis",
            "httpx", "langchain-core", "langgraph", "langchain-openai",
-           "aio-pika", "pymilvus", "minio"]
+           "aio-pika", "pymilvus", "minio", "neo4j", "elasticsearch"]
 
 [tool.poetry.group.dev.dependencies]
 pytest         = "~8.3.0"

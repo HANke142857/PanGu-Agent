@@ -83,15 +83,19 @@ class Settings(BaseSettings):
     MILVUS_PORT: int = Field(default=19530, ge=1, le=65535)
 
     # ------------------------------------------------------------------
-    # Neo4j
+    # Neo4j / 知识图谱
     # ------------------------------------------------------------------
+    # 图谱后端：memory（内存 + 预置图谱，开发/测试）| neo4j（生产）
+    GRAPH_BACKEND:  str = "memory"
     NEO4J_URI:      str = "bolt://localhost:7687"
     NEO4J_USER:     str = "neo4j"
     NEO4J_PASSWORD: str = "password"
 
     # ------------------------------------------------------------------
-    # Elasticsearch
+    # Elasticsearch / 全文检索
     # ------------------------------------------------------------------
+    # 搜索后端：memory（内存 token 重叠，开发/测试）| es（生产）
+    SEARCH_BACKEND: str = "memory"
     ES_URL: str = "http://localhost:9200"
 
     # ------------------------------------------------------------------
