@@ -60,17 +60,20 @@ async def upload_drawing(
             f"不支持的文件格式 '.{suffix}'，允许: {_ALLOWED_EXTENSIONS}"
         )
 
-    # 2. 读取文件（MVP：存内存，不上传 MinIO）
+    # 2. 读取文件并上传对象存储
     file_bytes = await file.read()
     if len(file_bytes) > _MAX_FILE_SIZE:
         raise InvalidDrawingError(
             f"文件超过 50MB 限制: {len(file_bytes) / 1024 / 1024:.1f}MB"
         )
 
-    # 3. 构造 Drawing 实体
-    drawing_id = uuid.uuid4()
-    fake_url   = f"memory://{drawing_id}/{file.filename}"   # MVP 无 MinIO
+    storage      = request.app.state.storage
+    drawing_id   = uuid.uuid4()
+    object_name  = f"{drawing_id}/{file.filename}"
+    file_url     = await storage.upload(file_bytes, object_name)
+    sha256       = storage.compute_sha256(file_bytes)
 
+    # 3. 构造 Drawing 实体
     try:
         dtype = DrawingType(drawing_type)
     except ValueError:
@@ -86,11 +89,12 @@ async def upload_drawing(
         title           = title,
         drawing_type    = dtype,
         file_format     = fmt,
-        file_url        = fake_url,
+        file_url        = file_url,
         file_size_bytes = len(file_bytes),
         source_system   = source_system,
         source_doc_id   = source_doc_id,
         lifecycle_state = LifecycleState.draft,
+        metadata        = {"object_name": object_name, "sha256": sha256},
     )
     await drawing_repo.save(drawing)
 
@@ -101,7 +105,7 @@ async def upload_drawing(
         from idmas.agents.vision.graph import build_vision_graph
         graph  = await build_vision_graph(llm_client)
         result = await graph.ainvoke({
-            "image_url":   fake_url,
+            "image_url":   file_url,
             "prompt_mode": prompt_mode,
             "drawing_id":  str(drawing_id),
         })
@@ -147,6 +151,30 @@ async def get_drawing(drawing_id: UUID, request: Request):
         raise DrawingNotFoundError(str(drawing_id))
     labels = await drawing_repo.get_labels(drawing_id)
     return _to_response(drawing, labels)
+
+
+# ── GET /api/v1/drawings/{id}/file ─────────────────────────────────────────
+
+@router.get("/{drawing_id}/file", summary="下载图纸原始文件")
+async def download_drawing_file(drawing_id: UUID, request: Request):
+    drawing_repo, _ = _get_repos(request)
+    storage         = request.app.state.storage
+    drawing = await drawing_repo.get_by_id(drawing_id)
+    if not drawing:
+        raise DrawingNotFoundError(str(drawing_id))
+
+    object_name = (drawing.metadata or {}).get("object_name")
+    if not object_name:
+        raise DrawingNotFoundError(f"{drawing_id} (无关联文件)")
+
+    from idmas.infrastructure.storage.base import ObjectNotFoundError, guess_content_type
+    try:
+        data = await storage.download(object_name)
+    except ObjectNotFoundError:
+        raise DrawingNotFoundError(f"{drawing_id} (文件已删除)")
+
+    from fastapi import Response
+    return Response(content=data, media_type=guess_content_type(object_name))
 
 
 # ── GET /api/v1/drawings ───────────────────────────────────────────────────

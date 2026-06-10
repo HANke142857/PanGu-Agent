@@ -36,16 +36,20 @@ aio-pika = { version = "~9.5", optional = true }
 # 向量库 / 知识检索 (第5步激活)
 pymilvus = { version = "~2.4", optional = true }
 
+# 对象存储 (第6步激活)
+minio = { version = "~7.2", optional = true }
+
 [tool.poetry.extras]
-web    = ["fastapi", "uvicorn"]
-db     = ["sqlalchemy", "asyncpg", "redis"]
-http   = ["httpx"]
-llm    = ["langchain-core", "langgraph", "langchain-openai"]
-mq     = ["aio-pika"]
-vector = ["pymilvus"]
-all    = ["fastapi", "uvicorn", "sqlalchemy", "asyncpg", "redis",
-          "httpx", "langchain-core", "langgraph", "langchain-openai",
-          "aio-pika", "pymilvus"]
+web     = ["fastapi", "uvicorn"]
+db      = ["sqlalchemy", "asyncpg", "redis"]
+http    = ["httpx"]
+llm     = ["langchain-core", "langgraph", "langchain-openai"]
+mq      = ["aio-pika"]
+vector  = ["pymilvus"]
+storage = ["minio"]
+all     = ["fastapi", "uvicorn", "sqlalchemy", "asyncpg", "redis",
+           "httpx", "langchain-core", "langgraph", "langchain-openai",
+           "aio-pika", "pymilvus", "minio"]
 
 [tool.poetry.group.dev.dependencies]
 pytest         = "~8.3.0"

@@ -36,11 +36,27 @@ def _build_task_queue(settings, drawing_repo, task_repo, llm_client):
     return EagerTaskQueue(handler=processor.handle)
 
 
+def _build_storage(settings):
+    """按配置组装对象存储客户端。"""
+    if settings.STORAGE_BACKEND == "minio":
+        from idmas.infrastructure.storage.minio_client import MinioStorageClient
+        return MinioStorageClient(
+            endpoint=settings.MINIO_ENDPOINT,
+            access_key=settings.MINIO_ACCESS_KEY,
+            secret_key=settings.MINIO_SECRET_KEY,
+            bucket=settings.MINIO_BUCKET,
+            secure=settings.MINIO_SECURE,
+        )
+    from idmas.infrastructure.storage.base import InMemoryStorageClient
+    return InMemoryStorageClient(bucket=settings.MINIO_BUCKET)
+
+
 def create_app(
     llm_client:   BaseLLMClient | None = None,
     drawing_repo=None,
     task_repo=None,
     task_queue=None,
+    storage=None,
 ) -> FastAPI:
     """
     创建 FastAPI 实例。
@@ -50,6 +66,7 @@ def create_app(
         drawing_repo: 注入图纸仓储（None → 内存仓储）
         task_repo:    注入任务仓储（None → 内存仓储）
         task_queue:   注入任务队列（None → 按 MQ_BACKEND 选择 eager/rabbitmq）
+        storage:      注入对象存储（None → 按 STORAGE_BACKEND 选择 memory/minio）
     """
     settings = get_settings()
 
@@ -74,6 +91,10 @@ def create_app(
         else:
             app.state.drawing_repo = drawing_repo or InMemoryDrawingRepository()
             app.state.task_repo    = task_repo    or InMemoryAnalysisTaskRepository()
+
+        # ── 对象存储 ──────────────────────────────────────────────────────
+        app.state.storage = storage or _build_storage(settings)
+        await app.state.storage.ensure_bucket()
 
         # ── 任务队列 ──────────────────────────────────────────────────────
         app.state.task_queue = task_queue or _build_task_queue(

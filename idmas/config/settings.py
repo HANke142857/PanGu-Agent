@@ -95,12 +95,15 @@ class Settings(BaseSettings):
     ES_URL: str = "http://localhost:9200"
 
     # ------------------------------------------------------------------
-    # MinIO
+    # MinIO / 对象存储
     # ------------------------------------------------------------------
+    # 存储后端：memory（进程内，开发/测试）| minio（生产）
+    STORAGE_BACKEND:  str = "memory"
     MINIO_ENDPOINT:   str = "localhost:9000"
     MINIO_ACCESS_KEY: str = "minioadmin"
     MINIO_SECRET_KEY: str = "minioadmin"
     MINIO_BUCKET:     str = "idmas-drawings"
+    MINIO_SECURE:     bool = False
 
     # ------------------------------------------------------------------
     # RabbitMQ
