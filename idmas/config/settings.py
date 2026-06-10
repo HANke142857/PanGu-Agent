@@ -53,9 +53,17 @@ class Settings(BaseSettings):
     DB_POOL_TIMEOUT:   int = Field(default=30,  ge=1,  le=300)
 
     # ------------------------------------------------------------------
-    # Redis
+    # Redis / 缓存 / Checkpointer
     # ------------------------------------------------------------------
+    # 缓存后端：memory（进程内，开发/测试）| redis（生产）
+    CACHE_BACKEND:        str = "memory"
+    # LangGraph Checkpointer：memory（重启丢失）| redis（需 langgraph-checkpoint-redis）
+    CHECKPOINTER_BACKEND: str = "memory"
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # API 限流（基于缓存计数，固定窗口）
+    RATE_LIMIT_ENABLED:   bool = False
+    RATE_LIMIT_PER_MINUTE: int = Field(default=100, ge=1, le=100000)
 
     # ------------------------------------------------------------------
     # vLLM

@@ -42,7 +42,6 @@ Checkpointer: MemorySaver (MVP)，生产替换为 Redis/PostgreSQL Checkpointer
 from __future__ import annotations
 from typing import Any
 
-from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
 
 from idmas.agents.master.nodes import (
@@ -91,7 +90,15 @@ async def build_master_graph(
     vision_node = await make_vision_agent_node(llm_client)
 
     # Checkpointer（仅在启用 human_review 时才需要持久化状态）
-    cp = (checkpointer or MemorySaver()) if enable_human_review else None
+    # 未显式注入时按 settings.CHECKPOINTER_BACKEND 选择（memory / redis）
+    if enable_human_review:
+        if checkpointer is None:
+            from idmas.config.settings import get_settings
+            from idmas.infrastructure.cache.checkpointer import build_checkpointer
+            checkpointer = build_checkpointer(get_settings())
+        cp = checkpointer
+    else:
+        cp = None
 
     builder = StateGraph(IDMASState)
 

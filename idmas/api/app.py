@@ -82,6 +82,15 @@ def _build_plm_factory(settings):
     return lambda system: shared
 
 
+def _build_cache(settings):
+    """按配置组装缓存客户端。"""
+    if settings.CACHE_BACKEND == "redis":
+        from idmas.infrastructure.cache.redis_client import RedisCacheClient
+        return RedisCacheClient(settings.REDIS_URL)
+    from idmas.infrastructure.cache.base import InMemoryCacheClient
+    return InMemoryCacheClient()
+
+
 def create_app(
     llm_client:   BaseLLMClient | None = None,
     drawing_repo=None,
@@ -89,6 +98,7 @@ def create_app(
     task_queue=None,
     storage=None,
     plm_factory=None,
+    cache=None,
 ) -> FastAPI:
     """
     创建 FastAPI 实例。
@@ -124,6 +134,9 @@ def create_app(
             app.state.drawing_repo = drawing_repo or InMemoryDrawingRepository()
             app.state.task_repo    = task_repo    or InMemoryAnalysisTaskRepository()
 
+        # ── 缓存 ──────────────────────────────────────────────────────────
+        app.state.cache = cache or _build_cache(settings)
+
         # ── 对象存储 ──────────────────────────────────────────────────────
         app.state.storage = storage or _build_storage(settings)
         await app.state.storage.ensure_bucket()
@@ -140,6 +153,7 @@ def create_app(
 
         # ── 关闭（清理资源）────────────────────────────────────────────
         await app.state.task_queue.close()
+        await app.state.cache.close()
         if use_sql:
             from idmas.infrastructure.db.session import close_db
             await close_db()
@@ -161,6 +175,11 @@ def create_app(
         allow_methods     = ["*"],
         allow_headers     = ["*"],
     )
+
+    # ── 限流（opt-in，基于 app.state.cache 计数）────────────────────────
+    if settings.RATE_LIMIT_ENABLED:
+        from idmas.api.middleware.rate_limit import RateLimitMiddleware
+        app.add_middleware(RateLimitMiddleware, per_minute=settings.RATE_LIMIT_PER_MINUTE)
 
     # ── 异常处理 ─────────────────────────────────────────────────────────
     app.add_exception_handler(IDMASError, idmas_exception_handler)          # type: ignore

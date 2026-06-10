@@ -25,6 +25,8 @@ x-app-env: &app-env
   DB_BACKEND: sql
   DATABASE_URL: postgresql+asyncpg://idmas:idmas_pwd@postgres:5432/idmas
   REDIS_URL: redis://redis:6379/0
+  CACHE_BACKEND: redis          # 缓存/限流计数走 Redis
+  CHECKPOINTER_BACKEND: memory  # 改 redis 需在 requirements 加 langgraph-checkpoint-redis
   # 消息队列
   MQ_BACKEND: rabbitmq
   RABBITMQ_URL: amqp://idmas:idmas_pwd@rabbitmq:5672/
