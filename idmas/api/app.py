@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from idmas.api.middleware.error_handler import idmas_exception_handler, generic_exception_handler
-from idmas.api.routes import health, drawings, tasks, plm
+from idmas.api.routes import health, drawings, tasks, plm, knowledge
 from idmas.config.settings import get_settings
 from idmas.domain.shared.exceptions import IDMASError
 from idmas.infrastructure.db.memory_repositories import (
@@ -210,5 +210,6 @@ def create_app(
     app.include_router(drawings.router)
     app.include_router(tasks.router)
     app.include_router(plm.router)
+    app.include_router(knowledge.router)
 
     return app
