@@ -1,0 +1,36 @@
+# IDMAS 运行时依赖（Docker 镜像用）。开发可继续用 poetry/pyproject。
+# 覆盖"真实后端全开"所需的全部第三方库。
+
+# Web
+fastapi>=0.115,<0.116
+uvicorn[standard]>=0.30,<0.33
+python-multipart>=0.0.9          # FastAPI 文件上传必需
+
+# 配置
+pydantic>=2.9,<2.11
+pydantic-settings>=2.5
+python-dotenv>=1.0
+
+# 关系库 / 缓存
+sqlalchemy[asyncio]>=2.0,<2.1
+asyncpg>=0.30
+redis>=5.0
+
+# 消息队列
+aio-pika>=9.5
+
+# 向量库 / 图库 / 全文检索
+pymilvus>=2.4,<2.6
+neo4j>=5.24
+elasticsearch>=8.15,<9
+
+# 对象存储
+minio>=7.2
+
+# HTTP（OCR / PLM 适配器复用）
+httpx>=0.27
+
+# LangGraph / LangChain
+langgraph>=0.3
+langchain-core>=0.3
+langchain-openai>=0.3

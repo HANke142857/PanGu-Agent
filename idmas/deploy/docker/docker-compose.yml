@@ -1,28 +1,173 @@
 # =============================================================================
-# IDMAS Docker Compose 部署配置 (MVP)
+# IDMAS Docker Compose（MVP，单机一键起）
 #
-# 服务 (参见技术设计7.4节):
-#   - api:        FastAPI应用 (×2副本, 端口8080)
-#   - worker:     LangGraph Worker (×2副本)
-#   - vllm:       vLLM推理服务 (GPU, 端口8000)
-#   - postgres:   PostgreSQL 16 (端口5432)
-#   - redis:      Redis 7 + AOF持久化 (端口6379)
-#   - rabbitmq:   RabbitMQ 3 + 管理面板 (端口5672/15672)
-#   - milvus:     Milvus 2.4 向量库 (端口19530)
-#   - minio:      MinIO 对象存储 (端口9000/9001)
-#   - prometheus: Prometheus 监控 (端口9090)
-#   - grafana:    Grafana 面板 (端口3000)
+# 用法（在本目录）::
+#   docker compose up -d --build
+#   # API:        http://localhost:8080/docs
+#   # RabbitMQ:   http://localhost:15672  (idmas / idmas_pwd)
+#   # MinIO:      http://localhost:9001    (minioadmin / minioadmin)
+#   # Neo4j:      http://localhost:7474    (neo4j / idmas_neo4j)
 #
-# 卷:
-#   - pg-data: PostgreSQL数据
-#   - redis-data: Redis持久化
-#   - milvus-data: Milvus数据
-#   - minio-data: MinIO对象
-#   - model-weights: 模型权重
+# 向量库：复用你已在运行的 milvus-standalone（host.docker.internal:19530），
+#        故本 compose 不再内置 Milvus。若未运行，请先启动它，或把
+#        VECTOR_BACKEND 改为 memory。
 #
-# 网络:
-#   - idmas-net: 内部网络 (bridge)
-#
-# GPU:
-#   - vllm服务使用NVIDIA GPU (deploy.resources.reservations.devices)
+# LLM/OCR/PLM 默认 fake（无需 GPU / 外部 PLM），可单独改为真实后端。
 # =============================================================================
+
+x-app-env: &app-env
+  APP_ENV: production
+  APP_LOG_LEVEL: INFO
+  # 关系库 / 缓存
+  DB_BACKEND: sql
+  DATABASE_URL: postgresql+asyncpg://idmas:idmas_pwd@postgres:5432/idmas
+  REDIS_URL: redis://redis:6379/0
+  # 消息队列
+  MQ_BACKEND: rabbitmq
+  RABBITMQ_URL: amqp://idmas:idmas_pwd@rabbitmq:5672/
+  # 对象存储
+  STORAGE_BACKEND: minio
+  MINIO_ENDPOINT: minio:9000
+  MINIO_ACCESS_KEY: minioadmin
+  MINIO_SECRET_KEY: minioadmin
+  MINIO_BUCKET: idmas-drawings
+  MINIO_SECURE: "false"
+  # 向量库（复用宿主机已运行的 Milvus standalone）
+  VECTOR_BACKEND: milvus
+  MILVUS_HOST: host.docker.internal
+  MILVUS_PORT: "19530"
+  EMBEDDING_DIM: "768"
+  # 全文检索
+  SEARCH_BACKEND: es
+  ES_URL: http://elasticsearch:9200
+  # 图谱
+  GRAPH_BACKEND: neo4j
+  NEO4J_URI: bolt://neo4j:7687
+  NEO4J_USER: neo4j
+  NEO4J_PASSWORD: idmas_neo4j
+  # 无 GPU / 无外部依赖
+  LLM_BACKEND: fake
+  OCR_BACKEND: fake
+  PLM_BACKEND: fake
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: idmas
+      POSTGRES_PASSWORD: idmas_pwd
+      POSTGRES_DB: idmas
+    ports: ["5432:5432"]
+    volumes: ["pg-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U idmas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [idmas-net]
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    volumes: ["redis-data:/data"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [idmas-net]
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: idmas
+      RABBITMQ_DEFAULT_PASS: idmas_pwd
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks: [idmas-net]
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["minio-data:/data"]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+    networks: [idmas-net]
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports: ["9200:9200"]
+    volumes: ["es-data:/usr/share/elasticsearch/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 6
+    networks: [idmas-net]
+
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/idmas_neo4j
+    ports: ["7474:7474", "7687:7687"]
+    volumes: ["neo4j-data:/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 20s
+      timeout: 10s
+      retries: 6
+    networks: [idmas-net]
+
+  api:
+    build:
+      context: ../../..
+      dockerfile: idmas/deploy/docker/Dockerfile.api
+    environment: *app-env
+    ports: ["8080:8080"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      elasticsearch: {condition: service_healthy}
+      neo4j: {condition: service_healthy}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [idmas-net]
+
+  worker:
+    build:
+      context: ../../..
+      dockerfile: idmas/deploy/docker/Dockerfile.worker
+    environment: *app-env
+    depends_on:
+      rabbitmq: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    extra_hosts: ["host.docker.internal:host-gateway"]
+    networks: [idmas-net]
+
+volumes:
+  pg-data:
+  redis-data:
+  minio-data:
+  es-data:
+  neo4j-data:
+
+networks:
+  idmas-net:
+    driver: bridge

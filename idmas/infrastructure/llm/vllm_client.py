@@ -301,3 +301,14 @@ class FakeVLLMClient(BaseLLMClient):
 
     async def health_check(self) -> bool:
         return True
+
+
+# ---------------------------------------------------------------------------
+# 工厂
+# ---------------------------------------------------------------------------
+
+def build_llm_client(settings: Any) -> BaseLLMClient:
+    """按 settings.LLM_BACKEND 选择 LLM 客户端（vllm 真实 / fake 默认）。"""
+    if getattr(settings, "LLM_BACKEND", "fake") == "vllm":
+        return VLLMClient(settings)
+    return FakeVLLMClient()

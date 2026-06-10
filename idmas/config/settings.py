@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # vLLM
     # ------------------------------------------------------------------
+    # LLM 后端：fake（无 GPU，开发/测试/演示）| vllm（真实推理，需 GPU）
+    LLM_BACKEND:         str   = "fake"
     VLLM_URL:            str   = "http://localhost:8000"
     VLLM_MODEL:          str   = "qwen2.5-vl-7b-finetuned"
     VLLM_MAX_TOKENS:     int   = Field(default=2048, ge=128,  le=8192)

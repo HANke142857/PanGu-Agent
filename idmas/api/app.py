@@ -16,7 +16,7 @@ from idmas.infrastructure.db.memory_repositories import (
     InMemoryDrawingRepository,
     InMemoryAnalysisTaskRepository,
 )
-from idmas.infrastructure.llm.vllm_client import BaseLLMClient, FakeVLLMClient
+from idmas.infrastructure.llm.vllm_client import BaseLLMClient, build_llm_client
 
 
 def _build_task_queue(settings, drawing_repo, task_repo, llm_client):
@@ -105,7 +105,7 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # ── 启动 ────────────────────────────────────────────────────────
-        app.state.llm_client = llm_client or FakeVLLMClient()
+        app.state.llm_client = llm_client or build_llm_client(settings)
 
         use_sql = settings.DB_BACKEND == "sql"
         if use_sql and (drawing_repo is None or task_repo is None):
