@@ -1,13 +1,15 @@
 """
 解析任务路由。
 
-POST /api/v1/tasks             创建并同步执行解析任务
+POST /api/v1/tasks             创建解析任务并入队（异步处理，202 Accepted）
 GET  /api/v1/tasks/{id}        查询任务结果
 GET  /api/v1/tasks             任务列表（分页）
 POST /api/v1/tasks/{id}/review 提交人工审核结果
+
+处理流程：路由只负责落库 + 发布 task.created 消息，真正的 Master Graph 执行
+由 services.TaskProcessor 承担（eager 队列就地执行 / rabbitmq 队列交 Worker）。
 """
 from __future__ import annotations
-import time
 import uuid
 from uuid import UUID
 
@@ -18,13 +20,9 @@ from idmas.api.schemas.task import (
     TaskListResponse, TaskReviewRequest,
 )
 from idmas.domain.analysis.entities import AnalysisTask, ReviewRecord
-from idmas.domain.analysis.value_objects import (
-    PromptMode, ReviewAction, TaskStatus, TaskType,
-)
-from idmas.domain.drawing.entities import DrawingLabel, LabelSource
-from idmas.domain.drawing.value_objects import BoundingBox, SpatialInfo
+from idmas.domain.analysis.value_objects import ReviewAction, TaskStatus
 from idmas.domain.shared.exceptions import DrawingNotFoundError, TaskNotFoundError
-from idmas.domain.shared.value_objects import Confidence
+from idmas.infrastructure.mq.base import TaskMessage
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"])
 
@@ -33,8 +31,8 @@ def _repos(request: Request):
     return request.app.state.drawing_repo, request.app.state.task_repo
 
 
-def _llm(request: Request):
-    return request.app.state.llm_client
+def _queue(request: Request):
+    return request.app.state.task_queue
 
 
 # ── POST /api/v1/tasks ─────────────────────────────────────────────────────
@@ -42,18 +40,16 @@ def _llm(request: Request):
 @router.post("", status_code=202, response_model=TaskCreateResponse, summary="创建解析任务")
 async def create_task(body: TaskCreateRequest, request: Request):
     drawing_repo, task_repo = _repos(request)
-    llm_client              = _llm(request)
+    task_queue              = _queue(request)
 
     # 校验图纸存在
     drawing = await drawing_repo.get_by_id(body.drawing_id)
     if not drawing:
         raise DrawingNotFoundError(str(body.drawing_id))
 
-    # 创建任务实体
-    task_id = uuid.uuid4()
-    thread_id = f"thread-{task_id}"
+    # 创建任务实体（created 状态落库）
     task = AnalysisTask(
-        id          = task_id,
+        id          = uuid.uuid4(),
         drawing_id  = body.drawing_id,
         user_id     = uuid.UUID("00000000-0000-0000-0000-000000000001"),  # MVP: 固定用户
         task_type   = body.task_type,
@@ -62,89 +58,17 @@ async def create_task(body: TaskCreateRequest, request: Request):
         background  = body.background,
     )
     await task_repo.save(task)
-    task.mark_processing(thread_id)
 
-    # 运行 Master Graph（含 Vision + 可选 Design/Process/Knowledge + Report）
-    t0 = time.monotonic()
-    try:
-        from idmas.agents.master.graph import build_master_graph
-        graph, _ = await build_master_graph(
-            llm_client           = llm_client,
-            enable_human_review  = True,
-        )
-        thread_id = f"thread-{task_id}"
-        config    = {"configurable": {"thread_id": thread_id}}
-        result    = await graph.ainvoke(
-            {
-                "image_url":   drawing.file_url,
-                "prompt_mode": body.prompt_mode.value,
-                "task_type":   body.task_type.value,
-                "user_query":  body.question,
-                "request_id":  str(task_id),
-                "messages":    [],
-            },
-            config=config,
-        )
+    # 入队：eager 队列就地处理完毕后任务已是终态；rabbitmq 队列则仍为 created。
+    await task_queue.publish(TaskMessage(task_id=task.id, drawing_id=body.drawing_id))
 
-        elapsed_ms   = int((time.monotonic() - t0) * 1000)
-        total_tokens = 0
-
-        # Master graph 结果字段
-        vision_final = result.get("vision_result") or {}
-        task.vision_result  = vision_final
-        task.design_result  = result.get("design_result") or {}
-        task.process_result = result.get("process_result") or {}
-        task.knowledge_result = result.get("knowledge_result") or {}
-        task.report_result  = result.get("report_result") or {}
-
-        if vision_final.get("success") or vision_final.get("labels"):
-            # 保存识别出的标号
-            raw_labels  = vision_final.get("labels", [])
-            new_labels  = []
-            for raw in raw_labels:
-                bb_data = raw.get("bounding_box", {})
-                try:
-                    bbox    = BoundingBox(**bb_data)
-                    spatial = SpatialInfo.from_bounding_box(bbox, raw.get("spatial_description", ""))
-                except Exception:
-                    bbox    = BoundingBox(x=0.0, y=0.0, width=0.1, height=0.1)
-                    spatial = SpatialInfo.from_bounding_box(bbox)
-
-                new_labels.append(DrawingLabel(
-                    drawing_id   = body.drawing_id,
-                    label_id     = str(raw.get("label_id", "")),
-                    name         = str(raw.get("name", "")),
-                    confidence   = Confidence(value=float(raw.get("confidence", 0.0))),
-                    bounding_box = bbox,
-                    spatial_info = spatial,
-                    source       = LabelSource.VISION_AGENT,
-                ))
-            await drawing_repo.save_labels(new_labels)
-
-            # 判断是否需要人工审核
-            needs_review = any(raw.get("needs_review") for raw in raw_labels)
-            if needs_review:
-                task.mark_waiting_review()
-            else:
-                task.mark_completed(elapsed_ms, total_tokens)
-        else:
-            master_status = result.get("status", "")
-            if master_status == "waiting_review":
-                task.mark_waiting_review()
-            elif master_status == "failed":
-                task.mark_failed("IDMAS-502-002", result.get("error") or "Master Agent failed")
-            else:
-                task.mark_failed("IDMAS-502-002", "Vision Agent returned no labels")
-
-    except Exception as exc:
-        elapsed_ms = int((time.monotonic() - t0) * 1000)
-        task.mark_failed("IDMAS-502-002", str(exc))
-
-    await task_repo.save(task)
+    # 重新读取以反映处理后的最新状态（eager 场景）
+    latest = await task_repo.get_by_id(task.id)
+    status = latest.status if latest else task.status
 
     return TaskCreateResponse(
         task_id    = task.id,
-        status     = task.status,
+        status     = status,
         stream_url = f"/api/v1/tasks/{task.id}/stream",
     )
 

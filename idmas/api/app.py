@@ -19,10 +19,28 @@ from idmas.infrastructure.db.memory_repositories import (
 from idmas.infrastructure.llm.vllm_client import BaseLLMClient, FakeVLLMClient
 
 
+def _build_task_queue(settings, drawing_repo, task_repo, llm_client):
+    """按配置组装任务队列。
+
+    - rabbitmq：仅发布，结果由独立 Worker 进程异步回写
+    - eager（默认）：发布即就地处理，保持单机/测试的同步语义
+    """
+    if settings.MQ_BACKEND == "rabbitmq":
+        from idmas.infrastructure.mq.publisher import RabbitMQTaskQueue
+        return RabbitMQTaskQueue(settings.RABBITMQ_URL)
+
+    from idmas.infrastructure.mq.base import EagerTaskQueue
+    from idmas.services.task_processor import TaskProcessor
+
+    processor = TaskProcessor(drawing_repo, task_repo, llm_client)
+    return EagerTaskQueue(handler=processor.handle)
+
+
 def create_app(
     llm_client:   BaseLLMClient | None = None,
     drawing_repo=None,
     task_repo=None,
+    task_queue=None,
 ) -> FastAPI:
     """
     创建 FastAPI 实例。
@@ -31,6 +49,7 @@ def create_app(
         llm_client:   注入 LLM 客户端（None → 自动根据环境选择）
         drawing_repo: 注入图纸仓储（None → 内存仓储）
         task_repo:    注入任务仓储（None → 内存仓储）
+        task_queue:   注入任务队列（None → 按 MQ_BACKEND 选择 eager/rabbitmq）
     """
     settings = get_settings()
 
@@ -56,9 +75,15 @@ def create_app(
             app.state.drawing_repo = drawing_repo or InMemoryDrawingRepository()
             app.state.task_repo    = task_repo    or InMemoryAnalysisTaskRepository()
 
+        # ── 任务队列 ──────────────────────────────────────────────────────
+        app.state.task_queue = task_queue or _build_task_queue(
+            settings, app.state.drawing_repo, app.state.task_repo, app.state.llm_client
+        )
+
         yield
 
         # ── 关闭（清理资源）────────────────────────────────────────────
+        await app.state.task_queue.close()
         if use_sql:
             from idmas.infrastructure.db.session import close_db
             await close_db()
