@@ -1,36 +1,47 @@
-# =============================================================================
-# LangChain Tools 定义
-#
-# 使用 @tool 装饰器定义，供各Agent节点调用
-#
-# Tools:
-#   - vllm_vision_inference(image_url, prompt, max_tokens) -> str
-#     调用vLLM进行图纸视觉推理
-#     模型: qwen2.5-vl-7b-finetuned
-#     参数: temperature=0.1
-#
-#   - ocr_extract_labels(image_url) -> dict
-#     PaddleOCR提取标号文字和坐标
-#     返回: {texts, boxes, scores}
-#
-#   - search_knowledge_base(query_text, top_k) -> list[dict]
-#     Milvus向量检索企业知识库
-#
-#   - search_es_keywords(query, index, top_k) -> list[dict]
-#     Elasticsearch BM25关键词检索
-#
-#   - query_knowledge_graph(label_name) -> dict
-#     Neo4j图谱查询: Label → Part → Equipment → FaultRecord
-#
-#   - get_design_standards(drawing_type) -> list[dict]
-#     获取设计标准文档
-#
-#   - plm_get_bom(doc_id, system) -> dict
-#     从PLM获取BOM清单
-#
-#   - plm_writeback(doc_id, system, data) -> dict
-#     向PLM回写解析结果 (含幂等Key + 重试)
-#
-#   - upload_to_minio(file_data, bucket, object_name) -> str
-#     上传文件到MinIO，返回presigned URL
-# =============================================================================
+"""
+LangChain Tools 工厂。
+
+把基础设施客户端包装为 LangChain StructuredTool，供需要 tool-calling 的 Agent 使用。
+工厂式绑定（注入客户端），不在模块层硬编码，便于测试替换 Fake。
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from langchain_core.tools import StructuredTool
+
+from idmas.infrastructure.ocr.base import BaseOCRClient
+from idmas.infrastructure.vectordb.base import BaseEmbedder, BaseVectorClient
+
+
+def make_knowledge_search_tool(
+    vector_client: BaseVectorClient,
+    embedder: BaseEmbedder,
+    collection: str,
+    top_k: int = 5,
+) -> StructuredTool:
+    """向量检索企业知识库的 tool。"""
+
+    async def search_knowledge_base(query: str) -> list[dict[str, Any]]:
+        embedding = embedder.embed_one(query)
+        hits = await vector_client.search(collection, embedding, top_k=top_k)
+        return [{"id": h.id, "score": round(h.score, 4), **h.metadata} for h in hits]
+
+    return StructuredTool.from_function(
+        coroutine=search_knowledge_base,
+        name="search_knowledge_base",
+        description="按文本向量检索企业知识库，返回相关条目。",
+    )
+
+
+def make_ocr_tool(ocr_client: BaseOCRClient) -> StructuredTool:
+    """PaddleOCR 提取文字/坐标的 tool。"""
+
+    async def ocr_extract_labels(image_url: str) -> list[dict[str, Any]]:
+        return await ocr_client.extract(image_url)
+
+    return StructuredTool.from_function(
+        coroutine=ocr_extract_labels,
+        name="ocr_extract_labels",
+        description="对图纸图片做 OCR，返回 [{text, score, box}]。",
+    )
