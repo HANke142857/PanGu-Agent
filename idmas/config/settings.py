@@ -150,6 +150,9 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # 可观测性
     # ------------------------------------------------------------------
+    # Prometheus 指标：关闭则全 No-op（测试/开发零开销）
+    METRICS_ENABLED:             bool = False
+    METRICS_PORT:                int  = Field(default=9100, ge=1, le=65535)  # worker 指标端口
     LANGFUSE_HOST:               str = "http://localhost:3000"
     LANGFUSE_PUBLIC_KEY:         str = "pk-placeholder"
     LANGFUSE_SECRET_KEY:         str = "sk-placeholder"

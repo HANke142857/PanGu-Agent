@@ -25,11 +25,15 @@ logger = logging.getLogger(__name__)
 async def run_worker() -> None:
     settings = get_settings()
 
+    from idmas.infrastructure.observability.metrics import build_metrics, start_metrics_server
+    metrics = build_metrics(settings)
+    start_metrics_server(metrics, settings.METRICS_PORT)
+
     await init_db()
     factory = get_session_factory()
     drawing_repo = SQLDrawingRepository(factory)
     task_repo = SQLAnalysisTaskRepository(factory)
-    processor = TaskProcessor(drawing_repo, task_repo, build_llm_client(settings))
+    processor = TaskProcessor(drawing_repo, task_repo, build_llm_client(settings), metrics=metrics)
 
     queue = RabbitMQTaskQueue(settings.RABBITMQ_URL)
     logger.info("Worker 启动，开始消费 task.created")

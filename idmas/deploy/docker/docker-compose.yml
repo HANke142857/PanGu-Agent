@@ -7,6 +7,8 @@
 #   # RabbitMQ:   http://localhost:15672  (idmas / idmas_pwd)
 #   # MinIO:      http://localhost:9001    (minioadmin / minioadmin)
 #   # Neo4j:      http://localhost:7474    (neo4j / idmas_neo4j)
+#   # Prometheus: http://localhost:9090
+#   # Grafana:    http://localhost:3001    (admin / idmas_grafana，已开匿名)
 #
 # 向量库：复用你已在运行的 milvus-standalone（host.docker.internal:19530），
 #        故本 compose 不再内置 Milvus。若未运行，请先启动它，或把
@@ -50,6 +52,9 @@ x-app-env: &app-env
   NEO4J_URI: bolt://neo4j:7687
   NEO4J_USER: neo4j
   NEO4J_PASSWORD: idmas_neo4j
+  # 可观测性
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9100"
   # 无 GPU / 无外部依赖
   LLM_BACKEND: fake
   OCR_BACKEND: fake
@@ -168,12 +173,29 @@ services:
     extra_hosts: ["host.docker.internal:host-gateway"]
     networks: [idmas-net]
 
+  prometheus:
+    image: prom/prometheus:latest
+    volumes: ["./prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+    networks: [idmas-net]
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: idmas_grafana
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    ports: ["3001:3000"]
+    volumes: ["grafana-data:/var/lib/grafana"]
+    depends_on: [prometheus]
+    networks: [idmas-net]
+
 volumes:
   pg-data:
   redis-data:
   minio-data:
   es-data:
   neo4j-data:
+  grafana-data:
 
 networks:
   idmas-net:

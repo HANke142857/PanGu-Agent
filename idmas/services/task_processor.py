@@ -37,11 +37,16 @@ class TaskProcessor:
         llm_client: BaseLLMClient,
         *,
         enable_human_review: bool = True,
+        metrics=None,
     ) -> None:
         self._drawing_repo = drawing_repo
         self._task_repo = task_repo
         self._llm = llm_client
         self._enable_human_review = enable_human_review
+        if metrics is None:
+            from idmas.infrastructure.observability.metrics import NoopMetrics
+            metrics = NoopMetrics()
+        self._metrics = metrics
 
     async def handle(self, message: TaskMessage) -> None:
         """队列回调入口。"""
@@ -94,6 +99,13 @@ class TaskProcessor:
             task.mark_failed("IDMAS-502-002", str(exc))
 
         await self._task_repo.save(task)
+
+        # ── 指标 ──
+        self._metrics.observe_agent("master", time.monotonic() - t0)
+        self._metrics.inc_task(task.status.value)
+        self._metrics.inc_tokens(task.total_tokens)
+        if task.conflicts:
+            self._metrics.inc_conflict(len(task.conflicts))
 
     # ------------------------------------------------------------------
     # 内部：结果回写

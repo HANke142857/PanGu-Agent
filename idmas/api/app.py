@@ -19,7 +19,7 @@ from idmas.infrastructure.db.memory_repositories import (
 from idmas.infrastructure.llm.vllm_client import BaseLLMClient, build_llm_client
 
 
-def _build_task_queue(settings, drawing_repo, task_repo, llm_client):
+def _build_task_queue(settings, drawing_repo, task_repo, llm_client, metrics=None):
     """按配置组装任务队列。
 
     - rabbitmq：仅发布，结果由独立 Worker 进程异步回写
@@ -32,7 +32,7 @@ def _build_task_queue(settings, drawing_repo, task_repo, llm_client):
     from idmas.infrastructure.mq.base import EagerTaskQueue
     from idmas.services.task_processor import TaskProcessor
 
-    processor = TaskProcessor(drawing_repo, task_repo, llm_client)
+    processor = TaskProcessor(drawing_repo, task_repo, llm_client, metrics=metrics)
     return EagerTaskQueue(handler=processor.handle)
 
 
@@ -134,6 +134,10 @@ def create_app(
             app.state.drawing_repo = drawing_repo or InMemoryDrawingRepository()
             app.state.task_repo    = task_repo    or InMemoryAnalysisTaskRepository()
 
+        # ── 指标 ──────────────────────────────────────────────────────────
+        from idmas.infrastructure.observability.metrics import build_metrics
+        app.state.metrics = build_metrics(settings)
+
         # ── 缓存 ──────────────────────────────────────────────────────────
         app.state.cache = cache or _build_cache(settings)
 
@@ -146,7 +150,8 @@ def create_app(
 
         # ── 任务队列 ──────────────────────────────────────────────────────
         app.state.task_queue = task_queue or _build_task_queue(
-            settings, app.state.drawing_repo, app.state.task_repo, app.state.llm_client
+            settings, app.state.drawing_repo, app.state.task_repo,
+            app.state.llm_client, app.state.metrics,
         )
 
         yield
@@ -180,6 +185,16 @@ def create_app(
     if settings.RATE_LIMIT_ENABLED:
         from idmas.api.middleware.rate_limit import RateLimitMiddleware
         app.add_middleware(RateLimitMiddleware, per_minute=settings.RATE_LIMIT_PER_MINUTE)
+
+    # ── 指标中间件 + /metrics 端点 ──────────────────────────────────────
+    from idmas.api.middleware.metrics import MetricsMiddleware
+    app.add_middleware(MetricsMiddleware)
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_endpoint():
+        from starlette.responses import Response
+        body, content_type = app.state.metrics.render()
+        return Response(content=body, media_type=content_type)
 
     # ── 异常处理 ─────────────────────────────────────────────────────────
     app.add_exception_handler(IDMASError, idmas_exception_handler)          # type: ignore
