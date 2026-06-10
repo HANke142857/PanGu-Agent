@@ -1,11 +1,14 @@
-# =============================================================================
-# Process SubGraph 状态定义 (ProcessState)
-#
-# 状态字段:
-#   - labels: list[dict]               # 输入标号列表
-#   - process_params: dict | None      # 提取的工艺参数
-#   - param_check_results: list[dict]  # 参数合理性检查结果
-#   - sequence_check: dict | None      # 工序逻辑检查
-#   - warnings: list[str]              # 告警信息
-#   - final_result: dict | None        # 最终结果
-# =============================================================================
+"""Process SubGraph 状态定义。"""
+from __future__ import annotations
+from typing import Any
+from typing_extensions import TypedDict
+
+
+class ProcessState(TypedDict, total=False):
+    labels:              list[dict[str, Any]]
+    drawing_type:        str
+    process_params:      dict[str, Any] | None
+    param_check_results: list[dict[str, Any]]
+    sequence_check:      dict[str, Any] | None
+    warnings:            list[str]
+    final_result:        dict[str, Any] | None

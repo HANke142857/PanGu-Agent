@@ -3,25 +3,46 @@
 # =============================================================================
 
 # --- Python ---
-# __pycache__/  *.py[cod]  *.egg-info/  dist/  build/  .eggs/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
 
 # --- 环境 ---
-# .env  .venv/  venv/
+.env
+.venv/
+venv/
+env/
 
 # --- IDE ---
-# .idea/  .vscode/  *.swp  *.swo
+.idea/
+.vscode/
+*.swp
+*.swo
 
 # --- 测试 ---
-# .coverage  htmlcov/  .pytest_cache/  .mypy_cache/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # --- 部署 ---
-# deploy/docker/.env  deploy/secrets/
+deploy/docker/.env
+deploy/secrets/
 
 # --- 模型权重 ---
-# models/  *.bin  *.safetensors
+models/
+*.bin
+*.safetensors
 
 # --- 日志 ---
-# logs/  *.log
+logs/
+*.log
 
 # --- OS ---
-# .DS_Store  Thumbs.db
+.DS_Store
+Thumbs.db

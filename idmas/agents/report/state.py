@@ -1,14 +1,16 @@
-# =============================================================================
-# Report SubGraph 状态定义 (ReportState)
-#
-# 状态字段:
-#   - vision_result: dict | None        # Vision Agent结果
-#   - design_result: dict | None        # Design Agent结果
-#   - process_result: dict | None       # Process Agent结果
-#   - knowledge_result: dict | None     # Knowledge Agent结果
-#   - conflicts_resolved: list[dict]    # 已解决的冲突列表
-#   - human_decisions: dict | None      # 人工审核决策
-#   - report_sections: list[dict]       # 报告各章节
-#   - summary: str | None               # 报告摘要
-#   - final_report: dict | None         # 最终报告
-# =============================================================================
+"""Report SubGraph 状态定义。"""
+from __future__ import annotations
+from typing import Any
+from typing_extensions import TypedDict
+
+
+class ReportState(TypedDict, total=False):
+    vision_result:      dict[str, Any] | None
+    design_result:      dict[str, Any] | None
+    process_result:     dict[str, Any] | None
+    knowledge_result:   dict[str, Any] | None
+    conflicts_resolved: list[dict[str, Any]]
+    human_decisions:    dict[str, Any] | None
+    report_sections:    list[dict[str, Any]]
+    summary:            str | None
+    final_report:       dict[str, Any] | None

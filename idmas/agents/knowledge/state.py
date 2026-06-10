@@ -1,14 +1,16 @@
-# =============================================================================
-# Knowledge SubGraph 状态定义 (KnowledgeState)
-#
-# 状态字段:
-#   - query: str                        # 检索查询
-#   - labels: list[dict] | None         # 相关标号(用于上下文)
-#   - vector_results: list[dict]        # Milvus向量检索结果
-#   - keyword_results: list[dict]       # ES关键词检索结果
-#   - graph_results: list[dict]         # Neo4j图谱查询结果
-#   - merged_context: str               # 融合后的上下文
-#   - rag_answer: str | None            # RAG生成的回答
-#   - confidence: float                 # 回答置信度
-#   - final_result: dict | None         # 最终结果
-# =============================================================================
+"""Knowledge SubGraph 状态定义。"""
+from __future__ import annotations
+from typing import Any
+from typing_extensions import TypedDict
+
+
+class KnowledgeState(TypedDict, total=False):
+    query:           str
+    labels:          list[dict[str, Any]] | None
+    vector_results:  list[dict[str, Any]]
+    keyword_results: list[dict[str, Any]]
+    graph_results:   list[dict[str, Any]]
+    merged_context:  str
+    rag_answer:      str | None
+    confidence:      float
+    final_result:    dict[str, Any] | None

@@ -1,26 +1,36 @@
-# =============================================================================
-# 通用 Pydantic Schema
-#
-# 包含:
-#   - ErrorResponse: 统一错误响应
-#     - error.code: str (如 "IDMAS-503-001")
-#     - error.message: str
-#     - error.detail: str | None (仅开发环境)
-#     - error.retry_after: int | None
-#     - error.request_id: str
-#
-#   - PaginationParams: 分页参数
-#     - offset: int (默认0)
-#     - limit: int (默认20, 最大100)
-#
-#   - PaginatedResponse: 分页响应包装
-#     - items: list
-#     - total: int
-#     - offset: int
-#     - limit: int
-#
-#   - HealthResponse: 健康检查响应
-#     - status: str (healthy/unhealthy)
-#     - version: str
-#     - dependencies: dict[str, str]  # 各依赖服务状态
-# =============================================================================
+"""通用响应 Schema。"""
+from __future__ import annotations
+from typing import Any, Generic, TypeVar
+from pydantic import BaseModel, Field
+
+T = TypeVar("T")
+
+
+class ErrorDetail(BaseModel):
+    code:        str
+    message:     str
+    detail:      str | None = None   # 仅开发环境暴露
+    retry_after: int | None = None
+    request_id:  str        = ""
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
+
+
+class PaginationParams(BaseModel):
+    offset: int = Field(default=0,  ge=0)
+    limit:  int = Field(default=20, ge=1, le=100)
+
+
+class PaginatedResponse(BaseModel, Generic[T]):
+    items:  list[T]
+    total:  int
+    offset: int
+    limit:  int
+
+
+class HealthResponse(BaseModel):
+    status:       str               # "healthy" | "unhealthy"
+    version:      str = "0.1.0"
+    dependencies: dict[str, str] = Field(default_factory=dict)
