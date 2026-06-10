@@ -1,0 +1,17 @@
+# 入口（Traefik/Nginx 均可，class 按集群调整）。MVP 用 Traefik 3.x。
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: idmas
+  namespace: idmas
+spec:
+  rules:
+    - host: idmas.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: idmas-api
+                port: {number: 8080}

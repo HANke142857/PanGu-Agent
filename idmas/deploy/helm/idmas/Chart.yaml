@@ -1,0 +1,6 @@
+apiVersion: v2
+name: idmas
+description: 工业图纸智能解析系统（API + LangGraph Worker）
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

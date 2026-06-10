@@ -1,12 +1,12 @@
-# API Deployment + Service（参见技术设计 7.3）
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: idmas-api
-  namespace: idmas
-  labels: {app: idmas-api}
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "idmas.labels" . | nindent 4 }}
+    app: idmas-api
 spec:
-  replicas: 2
+  replicas: {{ .Values.api.replicas }}
   strategy:
     type: RollingUpdate
     rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
@@ -22,16 +22,14 @@ spec:
     spec:
       containers:
         - name: api
-          image: idmas-api:latest
-          imagePullPolicy: IfNotPresent
+          image: {{ .Values.image.api }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - {name: http, containerPort: 8080}
           envFrom:
-            - configMapRef: {name: idmas-config}
-            - secretRef: {name: idmas-secrets}
+            {{- include "idmas.envFrom" . | nindent 12 }}
           resources:
-            requests: {cpu: 500m, memory: 1Gi}
-            limits: {cpu: "2", memory: 4Gi}
+            {{- toYaml .Values.api.resources | nindent 12 }}
           livenessProbe:
             httpGet: {path: /api/v1/health, port: 8080}
             initialDelaySeconds: 20
@@ -44,10 +42,29 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: idmas-api
-  namespace: idmas
-  labels: {app: idmas-api}
+  name: {{ .Release.Name }}-api
+  labels:
+    {{- include "idmas.labels" . | nindent 4 }}
 spec:
   selector: {app: idmas-api}
   ports:
     - {name: http, port: 8080, targetPort: 8080}
+{{- if .Values.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Release.Name }}-api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-api
+  minReplicas: {{ .Values.api.replicas }}
+  maxReplicas: {{ .Values.autoscaling.apiMax }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+{{- end }}

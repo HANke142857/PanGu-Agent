@@ -1,0 +1,8 @@
+IDMAS 已部署（release: {{ .Release.Name }}，namespace: {{ .Release.Namespace }}）。
+
+后续：
+  1. 确认中间件（postgres/redis/rabbitmq/minio/es/neo4j/milvus）已在本 namespace，
+     service 名与 values.yaml 的 config/secrets 一致。
+  2. 查看 Pod：  kubectl -n {{ .Release.Namespace }} get pods
+  3. 访问 API：  http://{{ .Values.ingress.host }}/docs
+  4. 生产请用 --set secrets.JWT_SECRET=... 覆盖默认密钥。

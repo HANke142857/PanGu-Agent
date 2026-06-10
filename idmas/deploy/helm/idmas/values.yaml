@@ -1,0 +1,58 @@
+# IDMAS Helm values。中间件（postgres/redis/...）请用各自 Helm chart 或托管服务，
+# 这里只部署 api + worker，并通过 config/secrets 指向它们的 service。
+
+image:
+  api: idmas-api:latest
+  worker: idmas-worker:latest
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 2
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "2", memory: 4Gi}
+
+worker:
+  replicas: 2
+  metricsPort: 9100
+  resources:
+    requests: {cpu: "1", memory: 4Gi}
+    limits: {cpu: "4", memory: 8Gi}
+
+autoscaling:
+  enabled: true
+  apiMax: 6
+  workerMax: 8
+
+ingress:
+  enabled: true
+  host: idmas.local
+
+# 非敏感配置（注入为环境变量）
+config:
+  APP_ENV: "production"
+  DB_BACKEND: "sql"
+  MQ_BACKEND: "rabbitmq"
+  STORAGE_BACKEND: "minio"
+  VECTOR_BACKEND: "milvus"
+  SEARCH_BACKEND: "es"
+  GRAPH_BACKEND: "neo4j"
+  CACHE_BACKEND: "redis"
+  LLM_BACKEND: "vllm"
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9100"
+  REDIS_URL: "redis://redis:6379/0"
+  RABBITMQ_URL: "amqp://idmas:idmas_pwd@rabbitmq:5672/"
+  MINIO_ENDPOINT: "minio:9000"
+  MILVUS_HOST: "milvus"
+  ES_URL: "http://elasticsearch:9200"
+  NEO4J_URI: "bolt://neo4j:7687"
+  VLLM_URL: "http://vllm:8000"
+
+# 敏感配置（生产用 --set 或外部 Secret 覆盖，勿明文提交）
+secrets:
+  DATABASE_URL: "postgresql+asyncpg://idmas:idmas_pwd@postgres:5432/idmas"
+  NEO4J_PASSWORD: "idmas_neo4j"
+  MINIO_ACCESS_KEY: "minioadmin"
+  MINIO_SECRET_KEY: "minioadmin"
+  JWT_SECRET: "change-me-in-prod"

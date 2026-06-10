@@ -1,14 +1,60 @@
-# =============================================================================
-# Kubernetes vLLM StatefulSet (参见技术设计7.3节)
-#
-# 配置:
-#   - namespace: idmas
-#   - replicas: 1
-#   - nodeSelector: nvidia.com/gpu.present=true
-#   - resources:
-#       limits: nvidia.com/gpu=1, memory=32Gi
-#   - args: --model /models/qwen2.5-vl-7b-ft
-#           --max-model-len 4096
-#           --gpu-memory-utilization 0.92
-#   - volumeMounts: model-weights → /models
-# =============================================================================
+# vLLM 推理 StatefulSet + Service（GPU；参见技术设计 7.3）
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vllm
+  namespace: idmas
+  labels: {app: vllm}
+spec:
+  serviceName: vllm
+  replicas: 1
+  selector:
+    matchLabels: {app: vllm}
+  template:
+    metadata:
+      labels: {app: vllm}
+    spec:
+      nodeSelector:
+        nvidia.com/gpu.present: "true"
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args:
+            - "--model"
+            - "/models/qwen2.5-vl-7b-ft"
+            - "--max-model-len"
+            - "4096"
+            - "--gpu-memory-utilization"
+            - "0.92"
+          ports:
+            - {name: http, containerPort: 8000}
+          resources:
+            limits:
+              nvidia.com/gpu: "1"
+              memory: 32Gi
+          volumeMounts:
+            - {name: model-weights, mountPath: /models}
+      volumes:
+        - name: model-weights
+          persistentVolumeClaim:
+            claimName: vllm-model-weights
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  namespace: idmas
+spec:
+  selector: {app: vllm}
+  ports:
+    - {name: http, port: 8000, targetPort: 8000}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-weights
+  namespace: idmas
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests: {storage: 50Gi}
