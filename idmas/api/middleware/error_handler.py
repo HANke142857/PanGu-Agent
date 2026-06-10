@@ -38,6 +38,17 @@ async def idmas_exception_handler(request: Request, exc: IDMASError) -> JSONResp
     return JSONResponse(status_code=exc.http_status, content=body)
 
 
+async def auth_exception_handler(request: Request, exc) -> JSONResponse:
+    """认证/授权异常（AuthError）→ 标准 JSON。"""
+    request_id = str(uuid.uuid4())[:8]
+    logger.warning("[%s] %s %s → %s: %s",
+                   request_id, request.method, request.url.path, exc.code, exc.message)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": {"code": exc.code, "message": exc.message, "request_id": request_id}},
+    )
+
+
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     settings   = get_settings()
     request_id = str(uuid.uuid4())[:8]

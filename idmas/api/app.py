@@ -8,7 +8,11 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from idmas.api.middleware.error_handler import idmas_exception_handler, generic_exception_handler
+from idmas.api.middleware.error_handler import (
+    idmas_exception_handler,
+    generic_exception_handler,
+    auth_exception_handler,
+)
 from idmas.api.routes import health, drawings, tasks, plm, knowledge
 from idmas.config.settings import get_settings
 from idmas.domain.shared.exceptions import IDMASError
@@ -202,7 +206,9 @@ def create_app(
         return Response(content=body, media_type=content_type)
 
     # ── 异常处理 ─────────────────────────────────────────────────────────
+    from idmas.api.middleware.auth import AuthError
     app.add_exception_handler(IDMASError, idmas_exception_handler)          # type: ignore
+    app.add_exception_handler(AuthError,  auth_exception_handler)           # type: ignore
     app.add_exception_handler(Exception,  generic_exception_handler)        # type: ignore
 
     # ── 路由 ─────────────────────────────────────────────────────────────

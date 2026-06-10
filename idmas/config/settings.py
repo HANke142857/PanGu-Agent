@@ -142,9 +142,10 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # JWT
     # ------------------------------------------------------------------
+    JWT_SECRET:           str = "change-me-in-prod"   # HS256 对称密钥（MVP）
     JWT_PRIVATE_KEY_PATH: str = "/path/to/private.pem"
     JWT_PUBLIC_KEY_PATH:  str = "/path/to/public.pem"
-    JWT_ALGORITHM:        str = "RS256"
+    JWT_ALGORITHM:        str = "HS256"
     JWT_EXPIRE_MINUTES:   int = Field(default=60, ge=5, le=1440)
 
     # ------------------------------------------------------------------
