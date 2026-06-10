@@ -41,6 +41,7 @@ all  = ["fastapi", "uvicorn", "sqlalchemy", "asyncpg", "redis",
 [tool.poetry.group.dev.dependencies]
 pytest         = "~8.3.0"
 pytest-asyncio = "~0.24.0"
+aiosqlite      = "~0.20.0"   # DB 仓储测试用的内存 SQLite 异步驱动
 ruff           = "~0.7.0"
 mypy           = "~1.13.0"
 

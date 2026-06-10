@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # PostgreSQL
     # ------------------------------------------------------------------
+    # 仓储后端：memory（开发/测试，进程内）| sql（PostgreSQL 持久化）
+    DB_BACKEND:        str = "memory"
     DATABASE_URL:      str = "postgresql+asyncpg://idmas:password@localhost:5432/idmas"
     DB_POOL_SIZE:      int = Field(default=10,  ge=1,  le=100)
     DB_MAX_OVERFLOW:   int = Field(default=20,  ge=0,  le=100)

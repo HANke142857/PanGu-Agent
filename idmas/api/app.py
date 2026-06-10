@@ -37,12 +37,31 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         # ── 启动 ────────────────────────────────────────────────────────
-        app.state.llm_client   = llm_client   or FakeVLLMClient()
-        app.state.drawing_repo = drawing_repo or InMemoryDrawingRepository()
-        app.state.task_repo    = task_repo    or InMemoryAnalysisTaskRepository()
+        app.state.llm_client = llm_client or FakeVLLMClient()
+
+        use_sql = settings.DB_BACKEND == "sql"
+        if use_sql and (drawing_repo is None or task_repo is None):
+            # 仅在选用 SQL 后端时才触碰数据库依赖，开发环境无需 PostgreSQL。
+            from idmas.infrastructure.db.repositories import (
+                SQLAnalysisTaskRepository,
+                SQLDrawingRepository,
+            )
+            from idmas.infrastructure.db.session import get_session_factory, init_db
+
+            await init_db()
+            factory = get_session_factory()
+            app.state.drawing_repo = drawing_repo or SQLDrawingRepository(factory)
+            app.state.task_repo    = task_repo    or SQLAnalysisTaskRepository(factory)
+        else:
+            app.state.drawing_repo = drawing_repo or InMemoryDrawingRepository()
+            app.state.task_repo    = task_repo    or InMemoryAnalysisTaskRepository()
+
         yield
+
         # ── 关闭（清理资源）────────────────────────────────────────────
-        # 真实客户端这里 close httpx.AsyncClient 等
+        if use_sql:
+            from idmas.infrastructure.db.session import close_db
+            await close_db()
 
     app = FastAPI(
         title       = "IDMAS — 工业图纸智能解析系统",
