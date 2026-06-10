@@ -43,6 +43,8 @@ minio = { version = "~7.2", optional = true }
 neo4j         = { version = "~5.24", optional = true }
 elasticsearch = { version = "~8.15", optional = true }
 
+# 注：PLM 适配器、OCR 复用 httpx（见上 http extra），无需额外依赖
+
 [tool.poetry.extras]
 web     = ["fastapi", "uvicorn"]
 db      = ["sqlalchemy", "asyncpg", "redis"]

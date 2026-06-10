@@ -119,6 +119,17 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str = "amqp://idmas:password@localhost:5672"
 
     # ------------------------------------------------------------------
+    # PLM 适配器
+    # ------------------------------------------------------------------
+    # 后端：fake（进程内，开发/测试）| real（按 system 调用品牌适配器）
+    PLM_BACKEND:        str = "fake"
+    PLM_TEAMCENTER_URL: str = "http://localhost:8200/teamcenter"
+    PLM_ENOVIA_URL:     str = "http://localhost:8200/enovia"
+    PLM_INTEPLM_URL:    str = "http://localhost:8200/inteplm"
+    PLM_AUTH_TOKEN:     str = ""
+    PLM_WEBHOOK_SECRET: str = ""
+
+    # ------------------------------------------------------------------
     # JWT
     # ------------------------------------------------------------------
     JWT_PRIVATE_KEY_PATH: str = "/path/to/private.pem"

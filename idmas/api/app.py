@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from idmas.api.middleware.error_handler import idmas_exception_handler, generic_exception_handler
-from idmas.api.routes import health, drawings, tasks
+from idmas.api.routes import health, drawings, tasks, plm
 from idmas.config.settings import get_settings
 from idmas.domain.shared.exceptions import IDMASError
 from idmas.infrastructure.db.memory_repositories import (
@@ -51,12 +51,44 @@ def _build_storage(settings):
     return InMemoryStorageClient(bucket=settings.MINIO_BUCKET)
 
 
+def _build_plm_factory(settings):
+    """按配置组装 PLM 适配器工厂：system 名称 -> 适配器实例。"""
+    if settings.PLM_BACKEND == "real":
+        from idmas.infrastructure.adapters.enovia import EnoviaAdapter
+        from idmas.infrastructure.adapters.inteplm import IntePLMAdapter
+        from idmas.infrastructure.adapters.teamcenter import TeamcenterAdapter
+
+        builders = {
+            "teamcenter": lambda: TeamcenterAdapter(
+                settings.PLM_TEAMCENTER_URL, settings.PLM_AUTH_TOKEN, settings.PLM_WEBHOOK_SECRET),
+            "enovia": lambda: EnoviaAdapter(
+                settings.PLM_ENOVIA_URL, settings.PLM_AUTH_TOKEN, settings.PLM_WEBHOOK_SECRET),
+            "inteplm": lambda: IntePLMAdapter(
+                settings.PLM_INTEPLM_URL, settings.PLM_AUTH_TOKEN, settings.PLM_WEBHOOK_SECRET),
+        }
+        cache: dict = {}
+
+        def factory(system: str):
+            key = system.lower()
+            if key not in builders:
+                raise ValueError(f"未知 PLM 系统: {system}")
+            return cache.setdefault(key, builders[key]())
+
+        return factory
+
+    # fake：所有 system 共用一个实例（幂等与回写记录跨调用保留）
+    from idmas.infrastructure.adapters.base import FakePLMAdapter
+    shared = FakePLMAdapter(webhook_secret=settings.PLM_WEBHOOK_SECRET)
+    return lambda system: shared
+
+
 def create_app(
     llm_client:   BaseLLMClient | None = None,
     drawing_repo=None,
     task_repo=None,
     task_queue=None,
     storage=None,
+    plm_factory=None,
 ) -> FastAPI:
     """
     创建 FastAPI 实例。
@@ -95,6 +127,9 @@ def create_app(
         # ── 对象存储 ──────────────────────────────────────────────────────
         app.state.storage = storage or _build_storage(settings)
         await app.state.storage.ensure_bucket()
+
+        # ── PLM 适配器工厂 ────────────────────────────────────────────────
+        app.state.plm_adapter_factory = plm_factory or _build_plm_factory(settings)
 
         # ── 任务队列 ──────────────────────────────────────────────────────
         app.state.task_queue = task_queue or _build_task_queue(
@@ -135,5 +170,6 @@ def create_app(
     app.include_router(health.router,   prefix="/api/v1")
     app.include_router(drawings.router)
     app.include_router(tasks.router)
+    app.include_router(plm.router)
 
     return app
