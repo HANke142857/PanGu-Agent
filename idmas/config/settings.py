@@ -74,8 +74,11 @@ class Settings(BaseSettings):
     OCR_TIMEOUT: int = Field(default=30, ge=5, le=120)
 
     # ------------------------------------------------------------------
-    # Milvus
+    # Milvus / 向量检索
     # ------------------------------------------------------------------
+    # 向量库后端：memory（内存 + 预置 KB，开发/测试）| milvus（生产）
+    VECTOR_BACKEND: str = "memory"
+    EMBEDDING_DIM:  int = Field(default=768, ge=8, le=4096)
     MILVUS_HOST: str = "localhost"
     MILVUS_PORT: int = Field(default=19530, ge=1, le=65535)
 
