@@ -59,6 +59,12 @@ x-app-env: &app-env
   LLM_BACKEND: fake
   OCR_BACKEND: fake
   PLM_BACKEND: fake
+  # 主控文本推理（DeepSeek 等）——从 .env 注入，未填则走规则式 fake
+  CHAT_BACKEND: ${CHAT_BACKEND:-fake}
+  DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+  DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+  CHAT_MODEL: ${CHAT_MODEL:-deepseek-v4-flash}
+  CHAT_TEMPERATURE: ${CHAT_TEMPERATURE:-0.3}
 
 services:
   postgres:
