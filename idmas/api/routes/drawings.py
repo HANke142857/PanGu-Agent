@@ -20,7 +20,9 @@ from idmas.domain.drawing.entities import Drawing, DrawingLabel, LabelSource
 from idmas.domain.drawing.value_objects import (
     BoundingBox, DrawingType, FileFormat, LifecycleState, SpatialInfo,
 )
-from idmas.domain.shared.exceptions import DrawingNotFoundError, InvalidDrawingError
+from idmas.domain.shared.exceptions import (
+    DrawingNotFoundError, InvalidDrawingError, StorageError,
+)
 from idmas.domain.shared.value_objects import Confidence
 
 router = APIRouter(prefix="/api/v1/drawings", tags=["drawings"])
@@ -70,8 +72,17 @@ async def upload_drawing(
     storage      = request.app.state.storage
     drawing_id   = uuid.uuid4()
     object_name  = f"{drawing_id}/{file.filename}"
-    file_url     = await storage.upload(file_bytes, object_name)
-    sha256       = storage.compute_sha256(file_bytes)
+    try:
+        file_url = await storage.upload(file_bytes, object_name)
+        sha256   = storage.compute_sha256(file_bytes)
+    except Exception as exc:
+        # 对象存储不可用（如 MinIO 未启动）——转成清晰的 502，而非裸 500
+        import logging
+        logging.getLogger(__name__).error("对象存储上传失败: %s", exc, exc_info=True)
+        raise StorageError(
+            message="对象存储不可用，图纸上传失败",
+            detail=f"{type(exc).__name__}: {exc}",
+        ) from exc
 
     # 3. 构造 Drawing 实体
     try:
@@ -189,10 +200,10 @@ async def list_drawings(
     drawing_repo, _ = _get_repos(request)
     if keyword:
         drawings = await drawing_repo.search_by_title(keyword, limit=limit)
+        total    = len(drawings)
     else:
-        # 内存仓储简化实现：返回所有，前端分页
-        all_drawings = list(drawing_repo._drawings.values())
-        drawings = all_drawings[offset: offset + limit]
+        drawings = await drawing_repo.list_all(offset=offset, limit=limit)
+        total    = await drawing_repo.count_all()
 
     items = []
     for d in drawings:
@@ -200,7 +211,7 @@ async def list_drawings(
         items.append(_to_response(d, labels))
 
     return DrawingListResponse(
-        items=items, total=drawing_repo.count, offset=offset, limit=limit,
+        items=items, total=total, offset=offset, limit=limit,
     )
 
 

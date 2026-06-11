@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── 调色板（CSS 变量，rgb 三元组）─────────────────────────── */
+:root,
+.light {
+  --canvas: 246 248 250;
+  --panel: 255 255 255;
+  --panel-2: 250 251 253;
+  --line: 229 231 235;
+  --line-strong: 209 213 219;
+  --ink: 17 24 39;
+  --ink-2: 31 41 55;
+  --ink-3: 107 114 128;
+  --ink-4: 156 163 175;
+  --industrial: 37 99 235;
+  --industrial-600: 29 78 216;
+  --industrial-50: 239 246 255;
+  --accent: 37 99 235;
+  --ok: 22 163 74;
+  --ok-50: 240 253 244;
+  --warn: 217 119 6;
+  --warn-50: 255 251 235;
+  --danger: 220 38 38;
+  --danger-50: 254 242 242;
+  --proc: 2 132 199;
+  --proc-50: 240 249 255;
+  --grid-line: 238 241 244;
+  --grid-bg: 251 252 253;
+}
+
+/* 深色"驾驶舱"主题 —— 深蓝石墨 + 青蓝霓光 */
+.dark {
+  --canvas: 8 11 18;
+  --panel: 16 21 32;
+  --panel-2: 21 27 40;
+  --line: 33 41 58;
+  --line-strong: 49 60 82;
+  --ink: 232 238 248;
+  --ink-2: 199 209 227;
+  --ink-3: 142 154 178;
+  --ink-4: 96 108 134;
+  --industrial: 70 140 255;
+  --industrial-600: 120 175 255;
+  --industrial-50: 23 37 64;
+  --accent: 56 200 235;
+  --ok: 52 211 130;
+  --ok-50: 16 42 31;
+  --warn: 245 184 76;
+  --warn-50: 46 37 17;
+  --danger: 248 102 102;
+  --danger-50: 49 24 27;
+  --proc: 56 200 235;
+  --proc-50: 14 38 49;
+  --grid-line: 24 31 46;
+  --grid-bg: 12 16 26;
+}
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-line-strong rounded;
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-4; }
+}
+
+@layer components {
+  .cad-grid {
+    background-color: rgb(var(--grid-bg));
+    background-image:
+      linear-gradient(rgb(var(--grid-line)) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--grid-line)) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+  .btn {
+    @apply inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-panel px-3 text-sm font-medium text-ink-2 transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply border-industrial text-white hover:brightness-110;
+    background-image: linear-gradient(180deg, rgb(var(--industrial)), rgb(var(--industrial-600)));
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 2px 8px rgb(var(--accent) / 0.25);
+  }
+  .btn-icon {
+    @apply inline-flex h-8 w-8 items-center justify-center rounded-md border border-line bg-panel text-ink-3 transition-colors hover:bg-canvas hover:text-ink;
+  }
+  .panel {
+    @apply rounded-lg border border-line bg-panel shadow-panel;
+  }
+  .panel-title {
+    @apply flex h-10 shrink-0 items-center justify-between border-b border-line px-3 text-sm font-semibold text-ink-2;
+  }
+  .th { @apply px-3 py-2 text-left text-2xs font-semibold uppercase tracking-wide text-ink-4; }
+  .td { @apply px-3 py-2 text-sm text-ink-2; }
+
+  /* 科技感点缀 */
+  .brand-cube {
+    background-image: linear-gradient(135deg, rgb(var(--industrial)), rgb(var(--accent)));
+    box-shadow: 0 0 12px rgb(var(--accent) / 0.5);
+  }
+  .glass {
+    background-color: rgb(var(--panel) / 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .glow-ring { box-shadow: 0 0 0 1px rgb(var(--accent) / 0.5), 0 0 14px rgb(var(--accent) / 0.4); }
+  /* 流动连接线（执行中） */
+  .flow-line {
+    background-image: linear-gradient(90deg, rgb(var(--proc)) 0 50%, transparent 50% 100%);
+    background-size: 16px 100%;
+    @apply animate-flow;
+  }
+  /* 顶栏底部一缕霓光 */
+  .topbar-sheen {
+    background-image: linear-gradient(90deg, transparent, rgb(var(--accent) / 0.5), transparent);
+  }
+}

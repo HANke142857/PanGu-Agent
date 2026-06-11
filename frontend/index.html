@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IDMAS · 工业图纸审阅工作台</title>
+    <script>
+      // 防止主题闪烁：渲染前应用已保存主题（默认深色）
+      (function () {
+        try {
+          var t = localStorage.getItem("idmas-theme") || "dark";
+          document.documentElement.classList.toggle("dark", t === "dark");
+          document.documentElement.classList.toggle("light", t === "light");
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

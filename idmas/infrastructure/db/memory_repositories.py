@@ -33,6 +33,13 @@ class InMemoryDrawingRepository(DrawingRepository):
         kw = keyword.lower()
         return [d for d in self._drawings.values() if kw in d.title.lower()][:limit]
 
+    async def list_all(self, offset: int = 0, limit: int = 20) -> list[Drawing]:
+        ordered = sorted(self._drawings.values(), key=lambda d: d.created_at, reverse=True)
+        return ordered[offset: offset + limit]
+
+    async def count_all(self) -> int:
+        return len(self._drawings)
+
     async def delete(self, drawing_id: UUID) -> None:
         drawing = self._drawings.get(drawing_id)
         if drawing:

@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     DB_POOL_SIZE:      int = Field(default=10,  ge=1,  le=100)
     DB_MAX_OVERFLOW:   int = Field(default=20,  ge=0,  le=100)
     DB_POOL_TIMEOUT:   int = Field(default=30,  ge=1,  le=300)
+    # 启动时自动建缺失的表（幂等，仅创建不存在的表）。
+    # 开发/单机/演示用 true 开箱即用；生产由 Alembic 管理 schema 时可设 false。
+    DB_AUTO_CREATE:    bool = True
 
     # ------------------------------------------------------------------
     # Redis / 缓存 / Checkpointer

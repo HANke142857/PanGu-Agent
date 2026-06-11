@@ -1,0 +1,12 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+.DS_Store
+
+# 工具链产物（可安全删除）
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+tsconfig.check.json

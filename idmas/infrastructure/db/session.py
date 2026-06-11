@@ -72,10 +72,20 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """初始化连接池（应用启动时调用）。仅做一次握手以触发连接建立。"""
+    """初始化连接池（应用启动时调用）。
+
+    - 建立一次连接握手以触发连接池预热。
+    - 若 settings.DB_AUTO_CREATE 为真，则用 ORM 元数据创建缺失的表
+      （create_all 自带 checkfirst，幂等：已存在的表跳过，不影响 Alembic）。
+    """
     engine = get_engine()
-    async with engine.connect():
-        pass
+    if get_settings().DB_AUTO_CREATE:
+        from idmas.infrastructure.db.models import Base
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    else:
+        async with engine.connect():
+            pass
 
 
 async def close_db() -> None:

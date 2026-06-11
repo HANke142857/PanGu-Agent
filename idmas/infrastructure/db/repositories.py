@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from idmas.domain.analysis.entities import AnalysisTask, ReviewRecord
@@ -74,6 +74,22 @@ class SQLDrawingRepository(DrawingRepository):
             )
             rows = (await s.execute(stmt)).scalars().all()
             return [mappers.drawing_to_domain(r) for r in rows]
+
+    async def list_all(self, offset: int = 0, limit: int = 20) -> list[Drawing]:
+        async with self._sf() as s:
+            stmt = (
+                select(DrawingModel)
+                .order_by(DrawingModel.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            rows = (await s.execute(stmt)).scalars().all()
+            return [mappers.drawing_to_domain(r) for r in rows]
+
+    async def count_all(self) -> int:
+        async with self._sf() as s:
+            stmt = select(func.count()).select_from(DrawingModel)
+            return int((await s.execute(stmt)).scalar_one())
 
     async def delete(self, drawing_id: UUID) -> None:
         """逻辑删除：lifecycle_state → obsolete。"""

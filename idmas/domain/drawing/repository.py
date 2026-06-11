@@ -41,6 +41,16 @@ class DrawingRepository(ABC):
         ...
 
     @abstractmethod
+    async def list_all(self, offset: int = 0, limit: int = 20) -> list[Drawing]:
+        """分页查询全部图纸（不限用户），按创建时间倒序。"""
+        ...
+
+    @abstractmethod
+    async def count_all(self) -> int:
+        """统计图纸总数（用于分页 total）。"""
+        ...
+
+    @abstractmethod
     async def delete(self, drawing_id: UUID) -> None:
         """逻辑删除图纸（lifecycle_state → obsolete）。"""
         ...

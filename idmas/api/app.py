@@ -13,7 +13,8 @@ from idmas.api.middleware.error_handler import (
     generic_exception_handler,
     auth_exception_handler,
 )
-from idmas.api.routes import health, drawings, tasks, plm, knowledge
+from idmas.api.routes import health, drawings, tasks, plm, knowledge, logs
+from idmas.infrastructure.observability.logging_config import setup_logging
 from idmas.config.settings import get_settings
 from idmas.domain.shared.exceptions import IDMASError
 from idmas.infrastructure.db.memory_repositories import (
@@ -115,6 +116,7 @@ def create_app(
         storage:      注入对象存储（None → 按 STORAGE_BACKEND 选择 memory/minio）
     """
     settings = get_settings()
+    setup_logging(settings.APP_LOG_LEVEL)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -211,11 +213,32 @@ def create_app(
     app.add_exception_handler(AuthError,  auth_exception_handler)           # type: ignore
     app.add_exception_handler(Exception,  generic_exception_handler)        # type: ignore
 
+    # ── 访问日志（每个请求一行，含状态码与耗时）──────────────────────
+    import logging as _logging
+    import time as _time
+    _access_log = _logging.getLogger("idmas.access")
+
+    @app.middleware("http")
+    async def _log_requests(request, call_next):
+        _t0 = _time.monotonic()
+        try:
+            response = await call_next(request)
+        except Exception:
+            _access_log.exception("%s %s -> 未处理异常", request.method, request.url.path)
+            raise
+        _dur = (_time.monotonic() - _t0) * 1000
+        _access_log.info(
+            "%s %s -> %s (%.1fms)",
+            request.method, request.url.path, response.status_code, _dur,
+        )
+        return response
+
     # ── 路由 ─────────────────────────────────────────────────────────────
     app.include_router(health.router,   prefix="/api/v1")
     app.include_router(drawings.router)
     app.include_router(tasks.router)
     app.include_router(plm.router)
     app.include_router(knowledge.router)
+    app.include_router(logs.router)
 
     return app
