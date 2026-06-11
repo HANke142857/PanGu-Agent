@@ -42,6 +42,16 @@ class AnalysisTaskRepository(ABC):
         ...
 
     @abstractmethod
+    async def list_all(self, offset: int = 0, limit: int = 20) -> list[AnalysisTask]:
+        """分页查询全部任务（不限用户），按创建时间倒序。"""
+        ...
+
+    @abstractmethod
+    async def count_all(self) -> int:
+        """统计任务总数（用于分页 total）。"""
+        ...
+
+    @abstractmethod
     async def list_pending_reviews(self) -> list[AnalysisTask]:
         """获取所有 waiting_review 状态的任务（人工审核队列）。"""
         ...

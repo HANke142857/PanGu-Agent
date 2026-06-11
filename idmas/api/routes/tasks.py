@@ -93,11 +93,11 @@ async def list_tasks(
     limit:   int = Query(default=20, ge=1, le=100),
 ):
     _, task_repo = _repos(request)
-    all_tasks = list(task_repo._tasks.values())
-    page      = all_tasks[offset: offset + limit]
+    page  = await task_repo.list_all(offset=offset, limit=limit)
+    total = await task_repo.count_all()
     return TaskListResponse(
         items=[_to_response(t) for t in page],
-        total=task_repo.count,
+        total=total,
         offset=offset,
         limit=limit,
     )

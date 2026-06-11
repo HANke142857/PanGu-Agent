@@ -106,6 +106,13 @@ class InMemoryAnalysisTaskRepository(AnalysisTaskRepository):
             results = [t for t in results if t.status == status]
         return results[offset: offset + limit]
 
+    async def list_all(self, offset: int = 0, limit: int = 20) -> list[AnalysisTask]:
+        ordered = sorted(self._tasks.values(), key=lambda t: t.created_at, reverse=True)
+        return ordered[offset: offset + limit]
+
+    async def count_all(self) -> int:
+        return len(self._tasks)
+
     async def list_pending_reviews(self) -> list[AnalysisTask]:
         return [t for t in self._tasks.values() if t.status == TaskStatus.waiting_review]
 

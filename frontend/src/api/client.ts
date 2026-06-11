@@ -29,8 +29,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     let msg = `${res.status} ${res.statusText}`;
     try {
       const body = await res.json();
-      code = body.error_code ?? body.code;
-      msg = body.error_message ?? body.detail ?? msg;
+      // 后端统一错误结构：{ error: { code, message, detail?, request_id } }
+      const e = body.error ?? body;
+      code = e.code ?? e.error_code;
+      msg = e.detail ?? e.message ?? e.error_message ?? msg;
     } catch {
       /* ignore */
     }

@@ -172,6 +172,22 @@ class SQLAnalysisTaskRepository(AnalysisTaskRepository):
             rows = (await s.execute(stmt)).scalars().all()
             return [mappers.task_to_domain(r) for r in rows]
 
+    async def list_all(self, offset: int = 0, limit: int = 20) -> list[AnalysisTask]:
+        async with self._sf() as s:
+            stmt = (
+                select(AnalysisTaskModel)
+                .order_by(AnalysisTaskModel.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+            )
+            rows = (await s.execute(stmt)).scalars().all()
+            return [mappers.task_to_domain(r) for r in rows]
+
+    async def count_all(self) -> int:
+        async with self._sf() as s:
+            stmt = select(func.count()).select_from(AnalysisTaskModel)
+            return int((await s.execute(stmt)).scalar_one())
+
     async def list_pending_reviews(self) -> list[AnalysisTask]:
         async with self._sf() as s:
             stmt = select(AnalysisTaskModel).where(
