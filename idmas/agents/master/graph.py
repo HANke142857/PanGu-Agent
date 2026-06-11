@@ -45,14 +45,14 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from idmas.agents.master.nodes import (
-    intent_node,
+    make_intent_node,
     preprocess_node,
     make_vision_agent_node,
     design_agent_node,
     process_agent_node,
     knowledge_agent_node,
     conflict_detection_node,
-    adversarial_debate_node,
+    make_debate_node,
     human_review_node,
     report_agent_node,
     aggregation_node,
@@ -74,6 +74,7 @@ async def build_master_graph(
     llm_client:  BaseLLMClient,
     checkpointer: Any | None = None,
     enable_human_review: bool = True,
+    chat_client: BaseLLMClient | None = None,
 ):
     """
     构建并编译 Master Graph。
@@ -86,8 +87,16 @@ async def build_master_graph(
     Returns:
         (compiled_graph, checkpointer) — checkpointer 需要传给调用方用于状态恢复
     """
-    # 依赖注入的 Vision 节点
+    # 依赖注入的 Vision 节点（视觉模型）
     vision_node = await make_vision_agent_node(llm_client)
+
+    # 主控文本推理客户端（意图/辩论）；未显式注入时按 CHAT_BACKEND 选择（fake → None 走规则）
+    if chat_client is None:
+        from idmas.config.settings import get_settings
+        from idmas.infrastructure.llm.deepseek_client import build_chat_client
+        chat_client = build_chat_client(get_settings())
+    intent_node = make_intent_node(chat_client)
+    debate_node = make_debate_node(chat_client)
 
     # Checkpointer（仅在启用 human_review 时才需要持久化状态）
     # 未显式注入时按 settings.CHECKPOINTER_BACKEND 选择（memory / redis）
@@ -110,7 +119,7 @@ async def build_master_graph(
     builder.add_node("process_agent",       process_agent_node)
     builder.add_node("knowledge_agent",     knowledge_agent_node)
     builder.add_node("conflict_detection",  conflict_detection_node)
-    builder.add_node("adversarial_debate",  adversarial_debate_node)
+    builder.add_node("adversarial_debate",  debate_node)
     builder.add_node("human_review",        human_review_node)
     builder.add_node("report_agent",        report_agent_node)
     builder.add_node("aggregation",         aggregation_node)
@@ -164,7 +173,7 @@ async def build_master_graph(
     # knowledge → conflict_detection（knowledge 后固定进入冲突检测）
     builder.add_edge("knowledge_agent", "conflict_detection")
 
-    # conflict_detection → check_conflicts
+    # conflict_detection → check_conflict
     builder.add_conditional_edges(
         "conflict_detection",
         check_conflicts,

@@ -68,9 +68,16 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     # vLLM
     # ------------------------------------------------------------------
-    # LLM 后端：fake（无 GPU，开发/测试/演示）| vllm（真实推理，需 GPU）
+    # LLM 后端：fake（无 GPU，开发/测试/演示）| vllm（真实视觉推理，需 GPU）
     LLM_BACKEND:         str   = "fake"
     VLLM_URL:            str   = "http://localhost:8000"
+
+    # 主控文本推理后端（意图/辩论等）：fake（规则降级）| deepseek | openai
+    CHAT_BACKEND:        str   = "fake"
+    DEEPSEEK_API_KEY:    str   = ""        # 从环境变量注入，勿硬编码
+    DEEPSEEK_BASE_URL:   str   = "https://api.deepseek.com"
+    CHAT_MODEL:          str   = "deepseek-chat"   # 按 DeepSeek 文档填正确模型 id
+    CHAT_TEMPERATURE:    float = Field(default=0.3, ge=0.0, le=2.0)
     VLLM_MODEL:          str   = "qwen2.5-vl-7b-finetuned"
     VLLM_MAX_TOKENS:     int   = Field(default=2048, ge=128,  le=8192)
     VLLM_TEMPERATURE:    float = Field(default=0.1,  ge=0.0,  le=2.0)

@@ -1,15 +1,33 @@
 """
 Master Graph 节点函数。
 每个节点接收 IDMASState，返回部分状态更新 dict。
+
+意图识别 / 对抗辩论支持 LLM 驱动（注入文本 chat_client，如 DeepSeek）；
+未注入（chat_client=None）时退化为规则式，行为与 MVP 一致。
 """
 from __future__ import annotations
+import json
 import logging
+import re
 import time
 from typing import Any
 from idmas.agents.master.state import IDMASState
-from idmas.infrastructure.llm.vllm_client import BaseLLMClient
+from idmas.infrastructure.llm.vllm_client import BaseLLMClient, LLMMessage
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_json(text: str) -> dict[str, Any]:
+    """从 LLM 回复中抽取 JSON（容忍 ```json 围栏与前后文本）。"""
+    if not text:
+        return {}
+    m = re.search(r"\{.*\}", text, re.DOTALL)
+    if not m:
+        return {}
+    try:
+        return json.loads(m.group(0))
+    except (json.JSONDecodeError, ValueError):
+        return {}
 
 # 意图 → 所需 Agent 映射
 _INTENT_AGENTS: dict[str, list[str]] = {
@@ -42,6 +60,42 @@ def intent_node(state: IDMASState) -> dict[str, Any]:
         "status":          "processing",
         "messages":        [{"role": "system", "content": f"意图识别完成: {task_type}"}],
     }
+
+
+def make_intent_node(chat_client: BaseLLMClient | None):
+    """工厂：chat_client 为 None → 规则式；否则用 LLM 做语义意图分类（失败降级规则）。"""
+
+    async def intent_node_llm(state: IDMASState) -> dict[str, Any]:
+        if chat_client is None:
+            return intent_node(state)
+
+        from idmas.config.prompts.intent_prompts import INTENT_AGENT_MAP, build_intent_prompt
+
+        question    = state.get("user_query") or ""
+        has_drawing = bool(state.get("image_url"))
+        try:
+            prompt = build_intent_prompt(question, has_drawing)
+            resp = await chat_client.chat_completion(
+                [LLMMessage(role="user", content=prompt)], max_tokens=200, temperature=0.0)
+            data = _extract_json(resp.content)
+            intent_type = data.get("intent")
+            if intent_type not in INTENT_AGENT_MAP:
+                raise ValueError(f"未知意图: {intent_type!r}")
+            agents = INTENT_AGENT_MAP[intent_type]
+            intent = "knowledge_only" if intent_type == "knowledge_query" else "vision_first"
+            logger.info("[master] intent(LLM): %s → %s", intent_type, agents)
+            return {
+                "intent":          intent,
+                "required_agents": agents,
+                "task_type":       intent_type,
+                "status":          "processing",
+                "messages":        [{"role": "system", "content": f"意图识别(LLM): {intent_type}"}],
+            }
+        except Exception as exc:  # noqa: BLE001 — 降级规则
+            logger.warning("[master] intent LLM 失败，降级规则: %s", exc)
+            return intent_node(state)
+
+    return intent_node_llm
 
 
 # ── 节点 2: preprocess_node ───────────────────────────────────────────────
@@ -206,6 +260,46 @@ def adversarial_debate_node(state: IDMASState) -> dict[str, Any]:
         "debate_resolved": all_resolved,
         "messages":        [{"role": "system", "content": f"辩论完成: resolved={all_resolved}"}],
     }
+
+
+def make_debate_node(chat_client: BaseLLMClient | None):
+    """工厂：先跑规则裁决；chat_client 存在时，对规则未决的冲突再用 LLM 裁判（失败保留规则结果）。"""
+
+    async def debate_node_llm(state: IDMASState) -> dict[str, Any]:
+        base = adversarial_debate_node(state)            # 规则裁决
+        if chat_client is None:
+            return base
+
+        from idmas.config.prompts.debate_prompts import build_judge_prompt
+
+        conflicts = list(base.get("conflicts") or [])
+        if all(c.get("resolution") for c in conflicts):
+            return base
+
+        for c in conflicts:
+            if c.get("resolution"):
+                continue
+            try:
+                prompt = build_judge_prompt(
+                    c.get("vision_name", ""), c.get("vision_confidence", 0.0),
+                    c.get("knowledge_name", ""), c.get("knowledge_confidence", 0.0))
+                resp = await chat_client.chat_completion(
+                    [LLMMessage(role="user", content=prompt)], max_tokens=200, temperature=0.0)
+                data = _extract_json(resp.content)
+                winner = data.get("winner")
+                if winner == "vision":
+                    c["resolution"], c["resolved_by"] = c.get("vision_name"), "llm"
+                elif winner == "knowledge":
+                    c["resolution"], c["resolved_by"] = c.get("knowledge_name"), "llm"
+            except Exception as exc:  # noqa: BLE001 — 保留规则结果
+                logger.warning("[master] debate LLM 失败: %s", exc)
+
+        base["conflicts"] = conflicts
+        base["debate_resolved"] = all(c.get("resolution") for c in conflicts)
+        logger.info("[master] debate(LLM): resolved=%s", base["debate_resolved"])
+        return base
+
+    return debate_node_llm
 
 
 # ── 节点 9: human_review_node ─────────────────────────────────────────────
