@@ -44,7 +44,7 @@ class _FakeClient:
         return _Resp({
             "choices": [{"message": {"content": '{"winner": "vision"}'}}],
             "usage": {"prompt_tokens": 12, "completion_tokens": 4},
-            "model": "deepseek-chat",
+            "model": "deepseek-v4-flash",
         })
 
 
@@ -55,7 +55,7 @@ class TestBuildChatClient:
     def test_deepseek_returns_client(self):
         c = build_chat_client(SimpleNamespace(
             CHAT_BACKEND="deepseek", DEEPSEEK_API_KEY="sk-x",
-            DEEPSEEK_BASE_URL="https://api.deepseek.com", CHAT_MODEL="deepseek-chat",
+            DEEPSEEK_BASE_URL="https://api.deepseek.com", CHAT_MODEL="deepseek-v4-flash",
             CHAT_TEMPERATURE=0.3))
         assert isinstance(c, DeepSeekClient)
 
@@ -64,7 +64,7 @@ class TestDeepSeekClient:
     async def test_chat_completion(self, monkeypatch):
         import httpx
         monkeypatch.setattr(httpx, "AsyncClient", _FakeClient)
-        c = DeepSeekClient(api_key="sk-test", model="deepseek-chat")
+        c = DeepSeekClient(api_key="sk-test", model="deepseek-v4-flash")
         resp = await c.chat_completion([LLMMessage(role="user", content="hi")])
         assert resp.content == '{"winner": "vision"}'
         assert resp.prompt_tokens == 12 and resp.output_tokens == 4

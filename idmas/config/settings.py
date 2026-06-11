@@ -76,7 +76,9 @@ class Settings(BaseSettings):
     CHAT_BACKEND:        str   = "fake"
     DEEPSEEK_API_KEY:    str   = ""        # 从环境变量注入，勿硬编码
     DEEPSEEK_BASE_URL:   str   = "https://api.deepseek.com"
-    CHAT_MODEL:          str   = "deepseek-chat"   # 按 DeepSeek 文档填正确模型 id
+    # DeepSeek V4（2026-04 发布）：deepseek-v4-flash（快/经济）| deepseek-v4-pro（更强）
+    # 遗留名 deepseek-chat / deepseek-reasoner 将于 2026-07-24 弃用
+    CHAT_MODEL:          str   = "deepseek-v4-flash"
     CHAT_TEMPERATURE:    float = Field(default=0.3, ge=0.0, le=2.0)
     VLLM_MODEL:          str   = "qwen2.5-vl-7b-finetuned"
     VLLM_MAX_TOKENS:     int   = Field(default=2048, ge=128,  le=8192)

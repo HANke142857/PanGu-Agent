@@ -7,7 +7,8 @@ DeepSeek 文本推理客户端（OpenAI 兼容 API）。
 实现 BaseLLMClient.chat_completion；vision_inference 不支持（抛错）。
 httpx 惰性导入。API Key 从 settings.DEEPSEEK_API_KEY（即环境变量）读取，不硬编码。
 
-模型名经 settings.CHAT_MODEL 配置，默认 deepseek-chat（DeepSeek-V3.x）。
+模型名经 settings.CHAT_MODEL 配置，默认 deepseek-v4-flash（DeepSeek V4，2026-04 发布；
+另有 deepseek-v4-pro。遗留名 deepseek-chat/deepseek-reasoner 将于 2026-07-24 弃用）。
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from idmas.infrastructure.llm.vllm_client import BaseLLMClient, LLMMessage, LLMR
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "https://api.deepseek.com"
-DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_MODEL = "deepseek-v4-flash"
 
 
 class DeepSeekClient(BaseLLMClient):
